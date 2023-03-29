@@ -26,7 +26,3 @@ Now the eventbus is running and listening to the port 80. Visit the [swagger](ht
 
 Pull requests are welcome. For major changes, please open an issue first
 to discuss what you would like to change.
-
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/)
