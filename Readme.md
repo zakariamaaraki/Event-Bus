@@ -1,6 +1,6 @@
 # Event Bus
 
-This project is an implementation of a queue event bus using .NET 6. It provides a simple and efficient way to publish and consume events between different components of an application.
+This project is an implementation of a queueing system using .NET 6. It provides a simple and efficient way to publish and consume events between different components of an application.
 
 ## Installation
 
