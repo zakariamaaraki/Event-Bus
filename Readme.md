@@ -16,6 +16,12 @@ Run an instance of the image
 docker run -p 80:80 eventbus
 ```
 
+If you want to persist data, run the following command:
+
+```bash
+ docker run -p 80:80 -v eventbus:/app eventbus
+```
+
 Now the eventbus is running and listening to the port 80. Visit the [swagger](http://localhost/swagger/index.html) page for the documentation and to test it: 
 
 ## Architecture
