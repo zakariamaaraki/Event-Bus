@@ -3,6 +3,9 @@ using Service_bus.Models;
 
 namespace Service_bus.Volumes;
 
+/// <summary>
+/// Load all events from log files.
+/// </summary>
 public class EventsLoader : IEventsLoader
 {
     private readonly IEventBus _eventBus;
@@ -16,6 +19,11 @@ public class EventsLoader : IEventsLoader
         _logger = logger;
     }
 
+    /// <summary>
+    /// Load events from log files.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task.</returns>
     public async Task Load(CancellationToken cancellationToken)
     {
         IEnumerable<(string, Task<string>)> Readers = FileHelper.ReadDataAsync();

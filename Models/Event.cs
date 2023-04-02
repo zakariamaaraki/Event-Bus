@@ -8,6 +8,10 @@ public class Event : AbstractEvent
 
     public byte[]? Body { get; set; }
 
+    /// <summary>
+    /// This method serializes the event into a string. 
+    /// </summary>
+    /// <returns>A string representation of the event.</returns>
     public override string Serialize()
     {
         string base64HeaderContent = TransformHeaderValuesToBase64();
@@ -56,6 +60,12 @@ public class Event : AbstractEvent
         return Header;
     }
 
+    /// <summary>
+    /// This method deserializes a string repreentation of the event into it's original representation
+    /// which is an instance of Event.
+    /// </summary>
+    /// <param name="stringEvent">A string representation of the event.</param>
+    /// <returns>Returns an Event.</returns>
     public override Event Deserialize(string stringEvent)
     {
         string[] content = stringEvent.Split(",");

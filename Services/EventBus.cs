@@ -7,6 +7,9 @@ using Microsoft.Extensions.Options;
 
 namespace Service_bus.Services;
 
+/// <summary>
+/// The front door service to the queueing system. 
+/// </summary>
 public class EventBus : IEventBus
 {
     private readonly IEventDispatcher<Event> _eventDispatcher;
@@ -31,6 +34,14 @@ public class EventBus : IEventBus
         _maxBodySize = eventOptions.Value.MaxBodySize;
     }
 
+    /// <summary>
+    /// Push an Event to a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newEvent">The Event.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task.</returns>
     public Task PushEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken, bool logEvent = true)
     {
         ValidateEvent(newEvent);
@@ -50,6 +61,13 @@ public class EventBus : IEventBus
         }
     }
 
+    /// <summary>
+    /// Poll an Event from a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task<(Event, Guid)></returns>
     public async Task<(Event, Guid)> PollAsync(string queueName, CancellationToken cancellationToken, bool logEvent)
     {
         (Event polledEvent, Guid eventId) = await _eventDispatcher.PollAsync(queueName, cancellationToken, logEvent);
@@ -57,11 +75,27 @@ public class EventBus : IEventBus
         return (polledEvent, eventId);
     }
 
+    /// <summary>
+    /// Ack an Event already polled from the queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="eventId">A Guid referencing an event.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
     public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent)
     {
         return _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
     }
 
+    /// <summary>
+    /// Create a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="ackTimeout">The ack timeout for events.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the queue?</param>
+    /// <returns>A Task.</returns>
     public Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true)
     {
         ValidateArguments(queueName, ackTimeout);
@@ -75,6 +109,13 @@ public class EventBus : IEventBus
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Delete a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
     public Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
         if (string.IsNullOrEmpty(queueName))
@@ -106,21 +147,43 @@ public class EventBus : IEventBus
         }
     }
 
+    /// <summary>
+    /// Get list of the queues.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>List of queue info.</returns>
     public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
         return _eventDispatcher.GetListOfQueuesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Get a queue info.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<QueueInfo></returns>
     public Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
     {
         return _eventDispatcher.GetQueueInfoAsync(queueName, cancellationToken);
     }
 
+    /// <summary>
+    /// Peek an event from a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<Event></returns>
     public Task<Event> PeekAsync(string queueName, CancellationToken cancellationToken)
     {
         return _eventDispatcher.PeekAsync(queueName, cancellationToken);
     }
 
+    /// <summary>
+    /// Trigger timeout checks.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<int></returns>
     public Task<int> TriggerTimeoutChecksAsync(CancellationToken cancellationToken)
     {
         return _eventDispatcher.TriggerTimeoutChecksAsync(cancellationToken);

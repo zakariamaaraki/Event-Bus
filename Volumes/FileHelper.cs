@@ -1,5 +1,8 @@
 namespace Service_bus.Volumes;
 
+/// <summary>
+/// File helper
+/// </summary>
 public static class FileHelper
 {
     private const int MaxFileSize = 10000; // 10 KB, above this value another file should be created
@@ -10,6 +13,9 @@ public static class FileHelper
 
     private static readonly SemaphoreSlim _Semaphore = new SemaphoreSlim(1, 1);
 
+    /// <summary>
+    /// Read data from log files.
+    /// </summary>
     public static IEnumerable<(string, Task<string>)> ReadDataAsync()
     {
         string[] dataFiles = GetDataFiles();
@@ -19,6 +25,12 @@ public static class FileHelper
         }
     }
 
+    /// <summary>
+    /// Write data to log files.
+    /// </summary>
+    /// <param name="data">A string representing a serialized data.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task</returns>
     public static async Task WriteDataAsync(string? data, CancellationToken cancellationToken)
     {
         if (data == null)
@@ -52,6 +64,11 @@ public static class FileHelper
         _Semaphore.Release(1);
     }
 
+    /// <summary>
+    /// Read data from a file.
+    /// </summary>
+    /// <param name="fileName">The file name.</param>
+    /// <returns>A Task<string></returns>
     public static Task<string> ReadFileAsync(string fileName)
     {
         if (File.Exists(fileName))

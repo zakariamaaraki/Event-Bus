@@ -1,5 +1,8 @@
 namespace Service_bus.Headers;
 
+/// <summary>
+/// Header constants
+/// </summary>
 public static class WellKnownHeaders
 {
     public const string StartProcessingTimestampHeader = "start-processing-timestamp";

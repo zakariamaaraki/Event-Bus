@@ -8,6 +8,9 @@ using System.Net;
 
 namespace Service_bus.Middlewares;
 
+/// <summary>
+/// This class is used to create an error message in case a custom exception occurs.
+/// </summary>
 public class ExceptionMiddleware : IMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)

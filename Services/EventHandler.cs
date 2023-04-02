@@ -5,6 +5,11 @@ using Service_bus.Storage;
 
 namespace Service_bus.Services;
 
+/// <summary>
+/// Each event handler is mapped to one and only one queue.
+/// And handle all operations related to this queue.
+/// </summary>
+/// <typeparam name="T">The type of the event (subclass of AbstractEvent).</typeparam>
 public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
 {
     private readonly EventQueue<T> _queue;
@@ -24,6 +29,13 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         _queueName = queueName;
     }
 
+    /// <summary>
+    /// Push an event to the queue.
+    /// </summary>
+    /// <param name="data">The event.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task.</returns>
     public async Task PushAsync(T data, CancellationToken cancellationToken, bool logEvent = true)
     {
         await _queue.PushAsync(data, cancellationToken);
@@ -33,6 +45,12 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         }
     }
 
+    /// <summary>
+    /// Poll an event from the queue.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task<(T, Guid)>.</returns>
     public async Task<(T, Guid)> PollAsync(CancellationToken cancellationToken, bool logEvent = true)
     {
         T data = await _queue.PollAsync(cancellationToken);
@@ -47,6 +65,13 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         return (data, eventId);
     }
 
+    /// <summary>
+    /// Ack an event already consumed.
+    /// </summary>
+    /// <param name="id">The unique id representing an event.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task.</returns>
     public Task AckAsync(Guid id, CancellationToken cancellationToken, bool logEvent = true)
     {
         if (_nackStorage.RemoveEvent(id))
@@ -70,21 +95,40 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Get the current size of the queue.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<int>.</returns>
     public Task<int> GetCountAsync(CancellationToken cancellationToken)
     {
         return _queue.GetCountAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Get the number of Unacked poll events.
+    /// </summary>
+    /// <returns>An integer representing the number of unacked poll events.</returns>
     public int GetUnAckedPollEvents()
     {
         return _nackStorage.Count();
     }
 
+    /// <summary>
+    /// Peek an event from the queue.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<T></returns>
     public Task<T> PeekAsync(CancellationToken cancellationToken)
     {
         return _queue.PeekAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Get a queue info.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<QueueInfo></returns>
     public async Task<QueueInfo> GetQueueInfoAsync(CancellationToken cancellationToken)
     {
         int count = await GetCountAsync(cancellationToken);
@@ -97,6 +141,12 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         };
     }
 
+    /// <summary>
+    /// Requeue timed out unack events.
+    /// </summary>
+    /// <param name="dateTimeOffset">The date time offset.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task<int></returns>
     public async Task<int> RequeueTimedOutNackAsync(DateTimeOffset dateTimeOffset, CancellationToken cancellationToken)
     {
         List<(Guid, (T, DateTimeOffset))> timedOutEvents = _nackStorage.GetAndRemoveTimedOutEvents(dateTimeOffset);

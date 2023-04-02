@@ -2,6 +2,9 @@ using Service_bus.Volumes;
 
 namespace Service_bus.Services;
 
+/// <summary>
+/// A worker which handler timeout checks, log compaction and other operations.
+/// </summary>
 public class EventProcessor : IHostedService
 {
     private readonly ILogger<EventProcessor> _logger;

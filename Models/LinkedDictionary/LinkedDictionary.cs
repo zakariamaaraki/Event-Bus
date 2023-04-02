@@ -2,6 +2,11 @@ using System.Collections.Concurrent;
 
 namespace Service_bus.Models.LinkedDictionary;
 
+/// <summary>
+/// This class represents a Dictionary which contains elements in order of insertion.
+/// </summary>
+/// <typeparam name="TKey"></typeparam>
+/// <typeparam name="TValue"></typeparam>
 public class LinkedDictionary<TKey, TValue> where TKey : notnull
 {
     private readonly ConcurrentDictionary<TKey, Node<TKey, TValue>> _dictionary;
@@ -15,6 +20,11 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
         _dictionary = new ConcurrentDictionary<TKey, Node<TKey, TValue>>();
     }
 
+    /// <summary>
+    /// Adds / Updates element to the dictionary
+    /// </summary>
+    /// <param name="key">The key</param>
+    /// <param name="value">The value</param>
     public void Put(TKey key, TValue value)
     {
         var newNode = new Node<TKey, TValue>
@@ -39,6 +49,11 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
         _dictionary[key] = newNode;
     }
 
+    /// <summary>
+    /// Retrieves an element from the dictionary based on it's key.
+    /// </summary>
+    /// <param name="key">The key</param>
+    /// <returns>Return the value or throw KeyNotFoundException incase the key was not found.</returns>
     public TValue? Get(TKey key)
     {
         if (_dictionary.TryGetValue(key, out Node<TKey, TValue>? node))
@@ -48,11 +63,21 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
         throw new KeyNotFoundException($"key {key} does not exist");
     }
 
+    /// <summary>
+    /// Checks if a key exists in the dictionary.
+    /// </summary>
+    /// <param name="key">The key</param>
+    /// <returns>True if the key exists, False if it's absent.</returns>
     public bool ContainsKey(TKey key)
     {
         return _dictionary.ContainsKey(key);
     }
 
+    /// <summary>
+    /// Remove an element from the dictionary based on it's key.
+    /// </summary>
+    /// <param name="key">The key</param>
+    /// <returns>Return True if the element was found and deleted, otherwise returns False</returns>
     public bool Remove(TKey key)
     {
         if (_dictionary.TryGetValue(key, out Node<TKey, TValue>? node))
@@ -79,6 +104,11 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
         return false;
     }
 
+    /// <summary>
+    /// Removes an element from the dictionary based on a condition/
+    /// </summary>
+    /// <param name="function">A predicat function returning Whether the element should be deleted or not.</param>
+    /// <returns>Returns a list of deleted elements.</returns>
     public List<(TKey, TValue)> RemoveBasedOnCondition(Func<TValue, bool> function)
     {
         Node<TKey, TValue>? iter = _first;
@@ -103,6 +133,10 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
         return list;
     }
 
+    /// <summary>
+    /// Computes the number of elements in the dictionary.
+    /// </summary>
+    /// <returns>Returns the number of elements in the dictionary.</returns>
     public int Count()
     {
         return _dictionary.Count;

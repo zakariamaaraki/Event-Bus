@@ -2,7 +2,6 @@ namespace Service_bus.Models;
 
 public class QueueInfo
 {
-
     public string QueueName { get; set; }
 
     public int AckTimeout { get; set; }
