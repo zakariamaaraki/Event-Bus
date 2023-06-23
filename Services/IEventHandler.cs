@@ -11,6 +11,23 @@ public interface IEventHandler<T>
 {
     public int AckTimeout { get; }
 
+    public string QueueName { get; }
+
+    /// <summary>
+    /// Get list of partitions.
+    /// </summary>
+    /// <returns>List of EventHandlers</returns>
+    List<IEventHandler<T>> GetPartitions();
+
+    /// <summary>
+    /// Scale number of partitions
+    /// </summary>
+    /// <param name="newNumberOfPartitions">The new number of partitions</param>
+    /// <param name="cancellationToken">The cancellation token</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    Task ScaleNumberOfPartitions(int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true);
+
     /// <summary>
     /// Push an event to the queue.
     /// </summary>

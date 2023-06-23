@@ -68,14 +68,15 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     /// Log create queue event to a log file.
     /// </summary>
     /// <param name="queueName">The queue name.</param>
+    /// <param name="numberOfPartitions">Number of partitions.</param>
     /// <param name="ackTimeout">The ack timeout.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task.</returns>
-    public async Task LogQueueCreationEventAsync(string queueName, int ackTimeout, CancellationToken cancellationToken)
+    public async Task LogQueueCreationEventAsync(string queueName, int numberOfPartitions, int ackTimeout, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
         await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.CreateQueue + ":" + queueName + ":" + ackTimeout, cancellationToken);
+        await FileHelper.WriteDataAsync(EventOperation.CreateQueue + ":" + queueName + ":" + numberOfPartitions + ":" + ackTimeout, cancellationToken);
         await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
         _Semaphore.Release();
     }
@@ -91,6 +92,22 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
         await _Semaphore.WaitAsync();
         await FileHelper.WriteDataAsync(EventOperation.DeleteQueue + ":" + queueName, cancellationToken);
+        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        _Semaphore.Release();
+    }
+
+    /// <summary>
+    /// Scale the number of partitions in a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task.</returns>
+    public async Task LogScaleNumberOfPartitionsEventAsync(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
+    {
+        // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
+        await _Semaphore.WaitAsync();
+        await FileHelper.WriteDataAsync(EventOperation.ScalePartitions + ":" + queueName + ":" + newNumberOfPartitions, cancellationToken);
         await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
         _Semaphore.Release();
     }

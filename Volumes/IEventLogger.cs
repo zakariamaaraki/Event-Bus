@@ -36,13 +36,23 @@ public interface IEventLogger<T> where T : AbstractEvent
     Task LogAckEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Log create queue event.
+    /// Log create a queue event.
     /// </summary>
     /// <param name="queueName">The queue name.</param>
+    /// <param name="numberOfPartitions">Number of partitions.</param>
     /// <param name="ackTimeout">The ack timeout.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task.</returns>
-    Task LogQueueCreationEventAsync(string queueName, int ackTimeout, CancellationToken cancellationToken);
+    Task LogQueueCreationEventAsync(string queueName, int numberOfPartitions, int ackTimeout, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Scale the number of partitions in a queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task.</returns>
+    Task LogScaleNumberOfPartitionsEventAsync(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken);
 
     /// <summary>
     /// Log delete queue event.

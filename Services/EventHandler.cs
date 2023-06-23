@@ -19,6 +19,7 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
     private readonly string _queueName;
 
     public int AckTimeout { get => _nackStorage.AckTimeout; }
+    public string QueueName { get => _queueName; }
 
     public EventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName)
     {
@@ -136,8 +137,16 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         {
             QueueName = _queueName,
             AckTimeout = AckTimeout,
-            NumberOfElements = count,
-            UnAckedPollEvents = GetUnAckedPollEvents()
+            NumberOfPartitions = 1,
+            Partitions = new Dictionary<string, Partition>() {
+                {
+                    _queueName,
+                    new Partition() {
+                        NumberOfElements = count,
+                        UnAckedPollEvents = GetUnAckedPollEvents()
+                    }
+                }
+            }
         };
     }
 
@@ -176,5 +185,15 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         }
 
         return timedOutEvents.Count;
+    }
+
+    public List<IEventHandler<T>> GetPartitions()
+    {
+        return new List<IEventHandler<T>>();
+    }
+
+    public Task ScaleNumberOfPartitions(int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
+    {
+        throw new InvalidOperationException("You can not scale a queue created without partitions");
     }
 }

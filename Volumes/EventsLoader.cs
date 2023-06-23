@@ -56,6 +56,9 @@ public class EventsLoader : IEventsLoader
                     case EventOperation.CreateQueue:
                         await CreateQueueAsync(operation, cancellationToken);
                         break;
+                    case EventOperation.ScalePartitions:
+                        await ScaleNumberOfPartitions(operation, cancellationToken);
+                        break;
                     case EventOperation.DeleteQueue:
                         await DeleteQueueAsync(operation, cancellationToken);
                         break;
@@ -67,6 +70,16 @@ public class EventsLoader : IEventsLoader
         }
     }
 
+    private Task ScaleNumberOfPartitions(string[] operation, CancellationToken cancellationToken)
+    {
+        if (!Int32.TryParse(operation[2], out int newNumberOfPartitions) || newNumberOfPartitions <= 0)
+        {
+            _logger.LogError($"Cannot Parse the integer number of partitions = {operation[2]}, the operation will be ignored");
+            return Task.CompletedTask;
+        }
+        return _eventBus.ScaleNumberOfPartitions(operation[1], newNumberOfPartitions, cancellationToken, logEvent: false);
+    }
+
     private Task DeleteQueueAsync(string[] operation, CancellationToken cancellationToken)
     {
         return _eventBus.DeleteQueueAsync(operation[1], cancellationToken, logEvent: false);
@@ -74,13 +87,19 @@ public class EventsLoader : IEventsLoader
 
     private Task CreateQueueAsync(string[] operation, CancellationToken cancellationToken)
     {
-        if (Int32.TryParse(operation[2], out int ackTimeout))
+        if (!Int32.TryParse(operation[3], out int ackTimeout) || ackTimeout <= 0)
         {
-            return _eventBus.CreateQueueAsync(operation[1], ackTimeout, cancellationToken, logEvent: false);
+            _logger.LogError($"Cannot Parse the integer ack timeout {operation[3]}"
+                       + $"the queue, will be created with a default timeout of {DefaultAckTimeout} min");
+            ackTimeout = DefaultAckTimeout;
         }
-        _logger.LogError($"Cannot Parse the integer ack timeout {operation[2]}"
-                        + $"the queue, will be created with a default timeout of {DefaultAckTimeout} min");
-        return _eventBus.CreateQueueAsync(operation[1], DefaultAckTimeout, cancellationToken, logEvent: false);
+        if (!Int32.TryParse(operation[2], out int numberOfPartitions) || numberOfPartitions <= 0)
+        {
+            _logger.LogError($"Cannot Parse the integer number of partitions = {operation[2]}"
+                       + $"the queue, will be created with a default number of partitions = 1");
+            numberOfPartitions = 1;
+        }
+        return _eventBus.CreateQueueAsync(operation[1], ackTimeout, cancellationToken, logEvent: false, numberOfPartitions);
     }
 
     private Task AckEventAsync(string[] operation, CancellationToken cancellationToken)

@@ -16,6 +16,16 @@ public interface IEventDispatcher<T>
     void AddEventHandler(string queueName, IEventHandler<T> eventHandler);
 
     /// <summary>
+    /// Scale number of partitions in a given queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions</param>
+    /// <param name="cancellationToken">The cancellation token</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true);
+
+    /// <summary>
     /// Remove an event handler from the internal Dictionary.
     /// </summary>
     /// <param name="queueName">The queue name.</param>

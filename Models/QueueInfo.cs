@@ -6,7 +6,7 @@ public class QueueInfo
 
     public int AckTimeout { get; set; }
 
-    public int UnAckedPollEvents { get; set; }
+    public int NumberOfPartitions { get; set; }
 
-    public int NumberOfElements { get; set; }
+    public Dictionary<string, Partition> Partitions { get; set; }
 }

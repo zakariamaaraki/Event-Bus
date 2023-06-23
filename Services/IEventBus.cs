@@ -51,8 +51,19 @@ public interface IEventBus
     /// <param name="ackTimeout">The ack timeout for events.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the queue?</param>
+    /// <param name="numberOfPartitions">The number of partitions.</param>
     /// <returns>A Task.</returns>
-    Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true);
+    Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true, int numberOfPartitions = 1);
+
+    /// <summary>
+    /// Scale number of partitions in a given queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions</param>
+    /// <param name="cancellationToken">The cancellation token</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true);
 
     /// <summary>
     /// Delete a queue.

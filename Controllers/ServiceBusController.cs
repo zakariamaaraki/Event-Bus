@@ -17,9 +17,15 @@ public class ServiceBusController
     }
 
     [HttpPost("queue")]
-    public Task CreateQueue(string queueName, int maxAckTimeout, CancellationToken cancellationToken)
+    public Task CreateQueue(string queueName, int numberOfPartitions, int maxAckTimeout, CancellationToken cancellationToken)
     {
-        return _eventBus.CreateQueueAsync(queueName, maxAckTimeout, cancellationToken);
+        return _eventBus.CreateQueueAsync(queueName, maxAckTimeout, cancellationToken, numberOfPartitions: numberOfPartitions);
+    }
+
+    [HttpPost("queue/scale")]
+    public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
+    {
+        return _eventBus.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken);
     }
 
     [HttpPost("queue/event")]

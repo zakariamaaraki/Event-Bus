@@ -20,6 +20,7 @@ public class EventBus : IEventBus
 
     private const int MaxAckTimeout = 60 * 24; // 1 day
     private const int MaxQueueNameLength = 100;
+    private const int MaxPartitions = 100;
 
     public EventBus(
         IEventDispatcher<Event> eventDispatcher,
@@ -95,18 +96,51 @@ public class EventBus : IEventBus
     /// <param name="ackTimeout">The ack timeout for events.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the queue?</param>
+    /// <param name="numberOfPartitions">The number of partitions.</param>
     /// <returns>A Task.</returns>
-    public Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true)
+    public Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true, int numberOfPartitions = 1)
     {
-        ValidateArguments(queueName, ackTimeout);
+        ValidateArguments(queueName, ackTimeout, numberOfPartitions);
 
-        var eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName);
+        IEventHandler<Event> eventHandler;
+
+        if (numberOfPartitions > 1)
+        {
+            eventHandler = new PartitionBasedEventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, numberOfPartitions);
+
+            // We should also register all partitions, for fast access to partitions, typically during startup.
+            foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
+            {
+                _eventDispatcher.AddEventHandler(partition.QueueName, partition);
+            }
+        }
+        else
+        {
+            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName);
+        }
         _eventDispatcher.AddEventHandler(queueName, eventHandler);
         if (logEvent)
         {
-            return _eventLogger.LogQueueCreationEventAsync(queueName, ackTimeout, cancellationToken);
+            return _eventLogger.LogQueueCreationEventAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
         }
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Scale number of partitions in a given queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions</param>
+    /// <param name="cancellationToken">The cancellation token</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
+    {
+        if (newNumberOfPartitions > MaxPartitions)
+        {
+            throw new InvalidArgumentException($"number of partitions should be between 1 and ${MaxPartitions}");
+        }
+        return _eventDispatcher.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, logEvent);
     }
 
     /// <summary>
@@ -122,6 +156,14 @@ public class EventBus : IEventBus
         {
             throw new InvalidArgumentException("Queue name cannot be null or empty");
         }
+        IEventHandler<Event> eventHandler = _eventDispatcher.GetEventHandler(queueName);
+
+        // Delete also all partitions.
+        foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
+        {
+            _eventDispatcher.RemoveEventHandler(partition.QueueName);
+        }
+
         _eventDispatcher.RemoveEventHandler(queueName);
 
         if (logEvent)
@@ -131,7 +173,7 @@ public class EventBus : IEventBus
         return Task.CompletedTask;
     }
 
-    private static void ValidateArguments(string queueName, int ackTimeout)
+    private static void ValidateArguments(string queueName, int ackTimeout, int numberOfPartitions)
     {
         if (ackTimeout < 1 || ackTimeout > MaxAckTimeout)
         {
@@ -144,6 +186,10 @@ public class EventBus : IEventBus
         if (queueName.Length > MaxQueueNameLength)
         {
             throw new InvalidArgumentException($"Queue name must contains at most {MaxQueueNameLength} characters");
+        }
+        if (numberOfPartitions <= 0 || numberOfPartitions > MaxPartitions)
+        {
+            throw new InvalidArgumentException($"number of partitions should be between 1 and ${MaxPartitions}");
         }
     }
 

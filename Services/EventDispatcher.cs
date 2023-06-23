@@ -41,7 +41,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
         if (_eventHandlers.ContainsKey(queueName))
         {
             _eventHandlers.Remove(queueName);
-            _logger.LogInformation("Event handler with queue name = {queueName} removed", queueName);
+            _logger.LogInformation("Event handler with queue name = {queueName} deleted", queueName);
         }
         else
         {
@@ -124,8 +124,8 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
         return Task.WhenAll(_eventHandlers
-                        .Select(async pair => await pair.Value.GetQueueInfoAsync(cancellationToken))
-                        .ToList());
+                                .Select(async pair => await pair.Value.GetQueueInfoAsync(cancellationToken))
+                                .ToList());
     }
 
     /// <summary>
@@ -172,5 +172,30 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     {
         IEventHandler<T> eventHandler = GetEventHandler(queueName);
         return eventHandler.PeekAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Scale number of partitions in a given queue.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="newNumberOfPartitions">The new number of partitions</param>
+    /// <param name="cancellationToken">The cancellation token</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    public async Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
+    {
+        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        HashSet<string> toIgnore = eventHandler.GetPartitions().Select(partition => partition.QueueName).ToHashSet();
+        await eventHandler.ScaleNumberOfPartitions(newNumberOfPartitions, cancellationToken, logEvent);
+
+        // Should be registered in the event dispatcher.
+        eventHandler.GetPartitions()
+                    .ForEach(partition =>
+                    {
+                        if (!toIgnore.Contains(partition.QueueName))
+                        {
+                            _eventHandlers[partition.QueueName] = partition;
+                        }
+                    });
     }
 }
