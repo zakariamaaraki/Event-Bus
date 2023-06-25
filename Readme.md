@@ -26,7 +26,7 @@ Now the eventbus is running and listening to the port 80. Visit the [swagger](ht
 
 ## Architecture
 
-![Architecture](EventBus.png)
+![Architecture](queue-architecture.png)
 
 ## Contributing
 
