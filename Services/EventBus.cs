@@ -4,6 +4,7 @@ using Service_bus.Configurations;
 using Service_bus.Volumes;
 
 using Microsoft.Extensions.Options;
+using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 
@@ -21,6 +22,7 @@ public class EventBus : IEventBus
     private const int MaxAckTimeout = 60 * 24; // 1 day
     private const int MaxQueueNameLength = 100;
     private const int MaxPartitions = 100;
+    private const string DeadLetterQueueSuffix = "-DLQ";
 
     public EventBus(
         IEventDispatcher<Event> eventDispatcher,
@@ -89,6 +91,11 @@ public class EventBus : IEventBus
         return _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
     }
 
+    public Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent)
+    {
+        _logger.LogInformation($"Event: {eventId} from the queue: {queueName} will be moved to DLQ");
+    }
+
     /// <summary>
     /// Create a queue.
     /// </summary>
@@ -98,7 +105,23 @@ public class EventBus : IEventBus
     /// <param name="logEvent">Should the event be logged into the queue?</param>
     /// <param name="numberOfPartitions">The number of partitions.</param>
     /// <returns>A Task.</returns>
-    public Task CreateQueueAsync(string queueName, int ackTimeout, CancellationToken cancellationToken, bool logEvent = true, int numberOfPartitions = 1)
+    public Task CreateQueueAsync(
+        string queueName,
+        int ackTimeout,
+        CancellationToken cancellationToken,
+        bool logEvent = true,
+        int numberOfPartitions = 1)
+    {
+        return CreateQueueAsync(queueName, ackTimeout, cancellationToken, isDLQ: false, logEvent: logEvent, numberOfPartitions: numberOfPartitions);
+    }
+
+    private Task CreateQueueAsync(
+        string queueName,
+        int ackTimeout,
+        CancellationToken cancellationToken,
+        bool isDLQ = false,
+        bool logEvent = true,
+        int numberOfPartitions = 1)
     {
         ValidateArguments(queueName, ackTimeout, numberOfPartitions);
 
@@ -111,14 +134,21 @@ public class EventBus : IEventBus
             // We should also register all partitions, for fast access to partitions, typically during startup.
             foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
             {
-                _eventDispatcher.AddEventHandler(partition.QueueName, partition);
+                _eventDispatcher.AddEventHandler(partition.QueueName, partition, QueueType.Partition);
             }
         }
         else
         {
-            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName);
+            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, isDLQ ? QueueType.DeadLetterQueue : QueueType.Queue);
         }
-        _eventDispatcher.AddEventHandler(queueName, eventHandler);
+        _eventDispatcher.AddEventHandler(queueName, eventHandler, isDLQ ? QueueType.DeadLetterQueue : QueueType.Queue);
+
+        if (!isDLQ)
+        {
+            // Create the correspending DLQ queues.
+            CreateQueueAsync($"{queueName}{DeadLetterQueueSuffix}", ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
+        }
+
         if (logEvent)
         {
             return _eventLogger.LogQueueCreationEventAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
@@ -136,11 +166,35 @@ public class EventBus : IEventBus
     /// <returns>A Task.</returns>
     public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
     {
+        (_, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
+
+        // Scaling should be allowed only for QueueType = Queue
+        if (queueType != QueueType.Queue)
+        {
+            throw new InvalidOperationException("Scaling can be done only for queues");
+        }
+
+        return ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, isDLQ: false, logEvent: logEvent);
+    }
+
+    private async Task ScaleNumberOfPartitions(
+        string queueName,
+        int newNumberOfPartitions,
+        CancellationToken cancellationToken,
+        bool isDLQ = false,
+        bool logEvent = true)
+    {
         if (newNumberOfPartitions > MaxPartitions)
         {
             throw new InvalidArgumentException($"number of partitions should be between 1 and ${MaxPartitions}");
         }
-        return _eventDispatcher.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, logEvent);
+
+        await _eventDispatcher.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, logEvent);
+
+        if (!isDLQ)
+        {
+            await ScaleNumberOfPartitions($"{queueName}{DeadLetterQueueSuffix}", newNumberOfPartitions, cancellationToken, isDLQ: true, logEvent: false);
+        }
     }
 
     /// <summary>
@@ -156,21 +210,40 @@ public class EventBus : IEventBus
         {
             throw new InvalidArgumentException("Queue name cannot be null or empty");
         }
-        IEventHandler<Event> eventHandler = _eventDispatcher.GetEventHandler(queueName);
+        (IEventHandler<Event> eventHandler, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
 
-        // Delete also all partitions.
+        switch (queueType)
+        {
+            case QueueType.DeadLetterQueue:
+                throw new InvalidOperationException("You cannot directly delete a dead letter queue");
+            case QueueType.Partition:
+                throw new InvalidOperationException("You cannot delete a partition");
+        }
+
+        return DeleteQueueAsync(queueName, cancellationToken, isDLQ: false, logEvent: logEvent);
+    }
+
+    private async Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool isDLQ = false, bool logEvent = true)
+    {
+        (IEventHandler<Event> eventHandler, _) = _eventDispatcher.GetEventHandler(queueName);
+
+        // Delete also all partitions and the correspending DLQ.
         foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
         {
             _eventDispatcher.RemoveEventHandler(partition.QueueName);
         }
-
         _eventDispatcher.RemoveEventHandler(queueName);
+
+        if (!isDLQ)
+        {
+            // Delete the DLQ and its partitions
+            await DeleteQueueAsync($"{queueName}{DeadLetterQueueSuffix}", cancellationToken, isDLQ: true, logEvent: false);
+        }
 
         if (logEvent)
         {
-            return _eventLogger.LogQueueDeletionEventAsync(queueName, cancellationToken);
+            await _eventLogger.LogQueueDeletionEventAsync(queueName, cancellationToken);
         }
-        return Task.CompletedTask;
     }
 
     private static void ValidateArguments(string queueName, int ackTimeout, int numberOfPartitions)

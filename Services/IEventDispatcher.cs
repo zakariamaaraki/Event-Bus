@@ -13,7 +13,8 @@ public interface IEventDispatcher<T>
     /// </summary>
     /// <param name="queueName">The queue name.</param>
     /// <param name="eventHandler">The event handler.</param>
-    void AddEventHandler(string queueName, IEventHandler<T> eventHandler);
+    /// <param name="queueType">The type of the queue.</param>
+    void AddEventHandler(string queueName, IEventHandler<T> eventHandler, QueueType queueType);
 
     /// <summary>
     /// Scale number of partitions in a given queue.
@@ -35,8 +36,8 @@ public interface IEventDispatcher<T>
     /// Get an event handler. 
     /// </summary>
     /// <param name="queueName">The queue name.</param>
-    /// <returns>An IEventHandler<T></returns>
-    IEventHandler<T> GetEventHandler(string queueName);
+    /// <returns>An IEventHandler<T> and the queue type</returns>
+    (IEventHandler<T>, QueueType) GetEventHandler(string queueName);
 
     /// <summary>
     /// Forward the event to the right event handler.

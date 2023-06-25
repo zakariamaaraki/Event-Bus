@@ -4,6 +4,8 @@ public class QueueInfo
 {
     public string QueueName { get; set; }
 
+    public QueueType Type { get; set; }
+
     public int AckTimeout { get; set; }
 
     public int NumberOfPartitions { get; set; }

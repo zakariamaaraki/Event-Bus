@@ -135,10 +135,10 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         for (int i = 0; i < newNumberOfPartitions - currentNumberOfPartitions; i++)
         {
             CreateVirtualQueue(currentNumberOfPartitions + i);
-            if (logEvent)
-            {
-                await _eventLogger.LogScaleNumberOfPartitionsEventAsync(_queueName, newNumberOfPartitions, cancellationToken);
-            }
+        }
+        if (logEvent)
+        {
+            await _eventLogger.LogScaleNumberOfPartitionsEventAsync(_queueName, newNumberOfPartitions, cancellationToken);
         }
     }
 
@@ -170,7 +170,7 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     {
         string partitionName = $"{_queueName}-partition${partitionId}";
         _logger.LogInformation($"Creating new virtual partition {partitionName} for the queue {_queueName}");
-        var eventHandler = new EventHandler<T>(_logger, _eventLogger, _ackTimeout, partitionName);
+        var eventHandler = new EventHandler<T>(_logger, _eventLogger, _ackTimeout, partitionName, QueueType.Partition);
         _partitions.Add(eventHandler);
     }
 }

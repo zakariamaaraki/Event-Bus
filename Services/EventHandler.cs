@@ -17,17 +17,19 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
     private readonly ILogger _logger;
     private readonly IEventLogger<T> _eventLogger;
     private readonly string _queueName;
+    private readonly QueueType _queueType;
 
     public int AckTimeout { get => _nackStorage.AckTimeout; }
     public string QueueName { get => _queueName; }
 
-    public EventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName)
+    public EventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName, QueueType queueType)
     {
         _logger = logger;
         _eventLogger = eventLogger;
         _queue = new EventQueue<T>();
         _nackStorage = new NackStorage<T>(ackTimeout);
         _queueName = queueName;
+        _queueType = queueType;
     }
 
     /// <summary>
@@ -138,6 +140,7 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
             QueueName = _queueName,
             AckTimeout = AckTimeout,
             NumberOfPartitions = 1,
+            Type = _queueType,
             Partitions = new Dictionary<string, Partition>() {
                 {
                     _queueName,

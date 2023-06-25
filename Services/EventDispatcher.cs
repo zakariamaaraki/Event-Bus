@@ -1,5 +1,6 @@
 using Service_bus.Models;
 using Service_bus.Exceptions;
+using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 
@@ -9,7 +10,7 @@ namespace Service_bus.Services;
 /// <typeparam name="T">The tipe of Event (subclass of AbstractEvent).</typeparam>
 public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
 {
-    private readonly Dictionary<string, IEventHandler<T>> _eventHandlers = new();
+    private readonly Dictionary<string, (IEventHandler<T>, QueueType)> _eventHandlers = new();
     private readonly ILogger<EventDispatcher<T>> _logger;
 
     public EventDispatcher(ILogger<EventDispatcher<T>> logger)
@@ -22,13 +23,14 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// </summary>
     /// <param name="queueName">The queue name.</param>
     /// <param name="eventHandler">The event handler.</param>
-    public void AddEventHandler(string queueName, IEventHandler<T> eventHandler)
+    /// <param name="queueType">The type of the queue.</param>
+    public void AddEventHandler(string queueName, IEventHandler<T> eventHandler, QueueType queueType)
     {
         if (_eventHandlers.ContainsKey(queueName))
         {
             throw new QueueAlreadyExistsException($"Queue {queueName} already exists, please provide another name");
         }
-        _eventHandlers[queueName] = eventHandler;
+        _eventHandlers[queueName] = (eventHandler, queueType);
         _logger.LogInformation("New event handler registered with queue name = {queueName}", queueName);
     }
 
@@ -59,7 +61,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <returns>A Task.</returns>
     public Task PushAsync(string queueName, T data, CancellationToken cancellationToken, bool logEvent = true)
     {
-        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
         return eventHandler.PushAsync(data, cancellationToken, logEvent);
     }
 
@@ -72,7 +74,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <returns></returns>
     public Task<(T, Guid)> PollAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
-        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
         return eventHandler.PollAsync(cancellationToken, logEvent);
     }
 
@@ -87,7 +89,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
         _logger.LogInformation("Event id = {eventId} was successfully processed by the consumer", eventId);
-        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
         return eventHandler.AckAsync(eventId, cancellationToken, logEvent);
     }
 
@@ -95,12 +97,12 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// Get an event handler. 
     /// </summary>
     /// <param name="queueName">The queue name.</param>
-    /// <returns>An IEventHandler<T></returns>
-    public IEventHandler<T> GetEventHandler(string queueName)
+    /// <returns>An IEventHandler<T> and the queue type</returns>
+    public (IEventHandler<T>, QueueType) GetEventHandler(string queueName)
     {
-        if (_eventHandlers.TryGetValue(queueName, out IEventHandler<T>? eventHandler))
+        if (_eventHandlers.TryGetValue(queueName, out var item))
         {
-            return eventHandler;
+            return item;
         }
 
         throw new QueueNotFoundException($"Queue {queueName} does not exist");
@@ -124,7 +126,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
         return Task.WhenAll(_eventHandlers
-                                .Select(async pair => await pair.Value.GetQueueInfoAsync(cancellationToken))
+                                .Select(async pair => await pair.Value.Item1.GetQueueInfoAsync(cancellationToken))
                                 .ToList());
     }
 
@@ -136,8 +138,9 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <returns>A Task<QueueInfo></returns>
     public Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
     {
-        if (_eventHandlers.TryGetValue(queueName, out IEventHandler<T>? eventHandler))
+        if (_eventHandlers.TryGetValue(queueName, out var item))
         {
+            (IEventHandler<T>? eventHandler, _) = item;
             return eventHandler.GetQueueInfoAsync(cancellationToken);
         }
 
@@ -154,9 +157,9 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
         var dateTimeOffset = DateTimeOffset.Now;
         int numberOfTimeouts = 0;
 
-        foreach (KeyValuePair<string, IEventHandler<T>> eventHandler in _eventHandlers)
+        foreach (KeyValuePair<string, (IEventHandler<T>, QueueType)> eventHandler in _eventHandlers)
         {
-            numberOfTimeouts += await eventHandler.Value.RequeueTimedOutNackAsync(dateTimeOffset, cancellationToken);
+            numberOfTimeouts += await eventHandler.Value.Item1.RequeueTimedOutNackAsync(dateTimeOffset, cancellationToken);
         }
 
         return numberOfTimeouts;
@@ -170,7 +173,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <returns>A Task<T></returns>
     public Task<T> PeekAsync(string queueName, CancellationToken cancellationToken)
     {
-        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
         return eventHandler.PeekAsync(cancellationToken);
     }
 
@@ -184,7 +187,8 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <returns>A Task.</returns>
     public async Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
     {
-        IEventHandler<T> eventHandler = GetEventHandler(queueName);
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
+
         HashSet<string> toIgnore = eventHandler.GetPartitions().Select(partition => partition.QueueName).ToHashSet();
         await eventHandler.ScaleNumberOfPartitions(newNumberOfPartitions, cancellationToken, logEvent);
 
@@ -194,7 +198,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
                     {
                         if (!toIgnore.Contains(partition.QueueName))
                         {
-                            _eventHandlers[partition.QueueName] = partition;
+                            _eventHandlers[partition.QueueName] = (partition, QueueType.Partition);
                         }
                     });
     }
