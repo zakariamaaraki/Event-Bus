@@ -45,6 +45,16 @@ public interface IEventBus
     Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true);
 
     /// <summary>
+    /// Ack an event and move it to the DLQ.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="eventId">The event id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true);
+
+    /// <summary>
     /// Create a queue.
     /// </summary>
     /// <param name="queueName">The queue name.</param>

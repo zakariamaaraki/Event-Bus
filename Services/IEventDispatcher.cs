@@ -77,6 +77,14 @@ public interface IEventDispatcher<T>
     Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true);
 
     /// <summary>
+    /// Get nack event, based on the queue name and the event id.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    T? GetNackEvent(string queueName, Guid eventId);
+
+    /// <summary>
     /// Check if a queue exists.
     /// </summary>
     /// <param name="queueName">The queue name.</param>

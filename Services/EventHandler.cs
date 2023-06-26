@@ -190,6 +190,22 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
         return timedOutEvents.Count;
     }
 
+    public T? GetNackEvent(Guid eventId)
+    {
+        return _nackStorage.GetEvent(eventId);
+    }
+
+    public bool TryGetNackEvent(Guid eventId, out T? theEvent)
+    {
+        theEvent = null;
+        if (_nackStorage.ContainsEvent(eventId))
+        {
+            theEvent = _nackStorage.GetEvent(eventId);
+            return true;
+        }
+        return false;
+    }
+
     public List<IEventHandler<T>> GetPartitions()
     {
         return new List<IEventHandler<T>>();

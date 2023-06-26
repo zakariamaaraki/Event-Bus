@@ -10,6 +10,7 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     private readonly List<IEventHandler<T>> _partitions = new List<IEventHandler<T>>();
     private readonly ILogger _logger;
     private readonly string _queueName;
+    private readonly QueueType _queueType;
     private readonly int _ackTimeout;
     private readonly IEventLogger<T> _eventLogger;
     private readonly SemaphoreSlim _readSemaphore = new(1, 1);
@@ -19,12 +20,13 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     private int _rebalancingCounterForReads = -1;
     private int _rebalancingCounterForPeeks = -1;
 
-    public PartitionBasedEventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName, int partitions)
+    public PartitionBasedEventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName, int partitions, QueueType queueType)
     {
         _logger = logger;
         _queueName = queueName;
         _eventLogger = eventLogger;
         _ackTimeout = ackTimeout;
+        _queueType = queueType;
 
         _logger.LogDebug($"Start creating queue {_queueName} with {partitions} partitions");
         for (int partitionId = 0; partitionId < partitions; partitionId++)
@@ -76,6 +78,7 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
             AckTimeout = _ackTimeout,
             NumberOfPartitions = _partitions.Count(),
             QueueName = _queueName,
+            Type = _queueType,
             Partitions = partitions
         };
     }
@@ -140,6 +143,32 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         {
             await _eventLogger.LogScaleNumberOfPartitionsEventAsync(_queueName, newNumberOfPartitions, cancellationToken);
         }
+    }
+
+    public T? GetNackEvent(Guid eventId)
+    {
+        foreach (IEventHandler<T> partition in _partitions)
+        {
+            if (partition.TryGetNackEvent(eventId, out T? theEvent))
+            {
+                return theEvent;
+            }
+        }
+        throw new EventNotFoundException("The event was nout found in the nack storage");
+    }
+
+    public bool TryGetNackEvent(Guid eventId, out T? theEvent)
+    {
+        theEvent = null;
+        foreach (IEventHandler<T> partition in _partitions)
+        {
+            if (partition.TryGetNackEvent(eventId, out T? eventFound))
+            {
+                theEvent = eventFound;
+                return true;
+            }
+        }
+        return false;
     }
 
     private int GetPeekPartition(CancellationToken cancellationToken)

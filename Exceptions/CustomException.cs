@@ -4,7 +4,6 @@ namespace Service_bus.Exceptions;
 
 /// <summary>
 /// A custom exception used as base class for other custom exceptions.
-/// This class contains two other properties (ErrorMessages and the StatusCode) in addition to the message.
 /// </summary>
 public class CustomException : Exception
 {

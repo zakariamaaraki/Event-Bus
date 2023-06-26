@@ -88,4 +88,19 @@ public interface IEventHandler<T>
     /// </summary>
     /// <returns>An integer representing the number of unacked poll events.</returns>
     int GetUnAckedPollEvents();
+
+    /// <summary>
+    /// Get an event from the storage based on its key.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    T? GetNackEvent(Guid eventId);
+
+    /// <summary>
+    /// Try to get an event from the storage based on its key.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <param name="theEvent">The event stored in the nack storage if it exists.</param>
+    /// <returns>True if the event exists, false otherwise.</returns>
+    bool TryGetNackEvent(Guid eventId, out T? theEvent);
 }

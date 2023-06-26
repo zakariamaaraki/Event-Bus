@@ -35,4 +35,18 @@ public interface INackStorage<T>
     /// <param name="eventId">The events id.</param>
     /// <param name="newEvent">The event.</param>
     void AddEvent(Guid eventId, T newEvent);
+
+    /// <summary>
+    /// Get an event from the storage based on its key.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    T GetEvent(Guid eventId);
+
+    /// <summary>
+    /// Check if an event exists.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    bool ContainsEvent(Guid eventId);
 }

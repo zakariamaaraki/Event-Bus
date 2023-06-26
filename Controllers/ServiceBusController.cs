@@ -41,6 +41,12 @@ public class ServiceBusController
         return _eventBus.AckAsync(queueName, eventId, cancellationToken);
     }
 
+    [HttpPost("queue/deadletter")]
+    public Task AckAndMoveToDeadLetterQueueAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
+    {
+        return _eventBus.AckAndMoveToDeadLetterQueue(queueName, eventId, cancellationToken);
+    }
+
     [HttpGet("queue/info/{queueName}")]
     public Task<QueueInfo> GetQueueSizeInByteAsync(string queueName, CancellationToken cancellationToken)
     {

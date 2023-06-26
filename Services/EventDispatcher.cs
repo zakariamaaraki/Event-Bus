@@ -94,6 +94,18 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     }
 
     /// <summary>
+    /// Get nack event, based on the queue name and the event id.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    public T? GetNackEvent(string queueName, Guid eventId)
+    {
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
+        return eventHandler.GetNackEvent(eventId);
+    }
+
+    /// <summary>
     /// Get an event handler. 
     /// </summary>
     /// <param name="queueName">The queue name.</param>
@@ -126,6 +138,7 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
         return Task.WhenAll(_eventHandlers
+                                .Where(eventHandler => eventHandler.Value.Item2 == QueueType.Queue || eventHandler.Value.Item2 == QueueType.DeadLetterQueue)
                                 .Select(async pair => await pair.Value.Item1.GetQueueInfoAsync(cancellationToken))
                                 .ToList());
     }

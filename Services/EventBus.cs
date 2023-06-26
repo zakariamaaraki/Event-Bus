@@ -86,14 +86,47 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent)
+    public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
         return _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
     }
 
-    public Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent)
+    /// <summary>
+    /// Ack an event and move it to the DLQ.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="eventId">The event id.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    public Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
-        _logger.LogInformation($"Event: {eventId} from the queue: {queueName} will be moved to DLQ");
+        // Get the type of the queue for validation
+        // We should only allow calls when queue type is equals to queue
+        QueueType queueType = _eventDispatcher.GetEventHandler(queueName).Item2;
+        if (queueType != QueueType.Queue)
+        {
+            throw new InvalidOperationException($"No dead letter queue is attached to this {queueType.ToString()}: {queueName}");
+        }
+
+        string deadLetterQueueName = GetDeadLetterQueueName(queueName);
+        _logger.LogInformation($"Event: {eventId} from the queue: {queueName} will be moved to DLQ: {deadLetterQueueName}");
+        Event? nackEvent = _eventDispatcher.GetNackEvent(queueName, eventId);
+
+        if (nackEvent is null)
+        {
+            _logger.LogWarning("Nack event is not supposed to be null, the event will not be sent to the DLQ");
+            return Task.CompletedTask;
+        }
+
+        // Send the event to the DLQ
+        _eventDispatcher.PushAsync(deadLetterQueueName, nackEvent, cancellationToken, logEvent);
+
+        // Ack the event
+        // Not fot atomicity concerns the cancellation token should not be evaluated while acking the event.
+        AckAsync(queueName, eventId, CancellationToken.None, logEvent);
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -126,10 +159,11 @@ public class EventBus : IEventBus
         ValidateArguments(queueName, ackTimeout, numberOfPartitions);
 
         IEventHandler<Event> eventHandler;
+        QueueType queueType = isDLQ ? QueueType.DeadLetterQueue : QueueType.Queue;
 
         if (numberOfPartitions > 1)
         {
-            eventHandler = new PartitionBasedEventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, numberOfPartitions);
+            eventHandler = new PartitionBasedEventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, numberOfPartitions, queueType);
 
             // We should also register all partitions, for fast access to partitions, typically during startup.
             foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
@@ -139,14 +173,14 @@ public class EventBus : IEventBus
         }
         else
         {
-            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, isDLQ ? QueueType.DeadLetterQueue : QueueType.Queue);
+            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, queueType);
         }
-        _eventDispatcher.AddEventHandler(queueName, eventHandler, isDLQ ? QueueType.DeadLetterQueue : QueueType.Queue);
+        _eventDispatcher.AddEventHandler(queueName, eventHandler, queueType);
 
         if (!isDLQ)
         {
             // Create the correspending DLQ queues.
-            CreateQueueAsync($"{queueName}{DeadLetterQueueSuffix}", ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
+            CreateQueueAsync(GetDeadLetterQueueName(queueName), ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
         }
 
         if (logEvent)
@@ -193,7 +227,7 @@ public class EventBus : IEventBus
 
         if (!isDLQ)
         {
-            await ScaleNumberOfPartitions($"{queueName}{DeadLetterQueueSuffix}", newNumberOfPartitions, cancellationToken, isDLQ: true, logEvent: false);
+            await ScaleNumberOfPartitions(GetDeadLetterQueueName(queueName), newNumberOfPartitions, cancellationToken, isDLQ: true, logEvent: false);
         }
     }
 
@@ -237,7 +271,7 @@ public class EventBus : IEventBus
         if (!isDLQ)
         {
             // Delete the DLQ and its partitions
-            await DeleteQueueAsync($"{queueName}{DeadLetterQueueSuffix}", cancellationToken, isDLQ: true, logEvent: false);
+            await DeleteQueueAsync(GetDeadLetterQueueName(queueName), cancellationToken, isDLQ: true, logEvent: false);
         }
 
         if (logEvent)
@@ -306,5 +340,10 @@ public class EventBus : IEventBus
     public Task<int> TriggerTimeoutChecksAsync(CancellationToken cancellationToken)
     {
         return _eventDispatcher.TriggerTimeoutChecksAsync(cancellationToken);
+    }
+
+    private string GetDeadLetterQueueName(string queueName)
+    {
+        return $"{queueName}{DeadLetterQueueSuffix}";
     }
 }

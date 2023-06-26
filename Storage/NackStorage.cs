@@ -1,3 +1,4 @@
+using Service_bus.Exceptions;
 using Service_bus.Models;
 using Service_bus.Models.LinkedDictionary;
 
@@ -56,5 +57,32 @@ public class NackStorage<T> : INackStorage<T> where T : AbstractEvent
     public void AddEvent(Guid eventId, T newEvent)
     {
         _nackEvents.Put(eventId, (newEvent, DateTimeOffset.Now));
+    }
+
+    /// <summary>
+    /// Get an event from the storage based on its key.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    public T GetEvent(Guid eventId)
+    {
+        try
+        {
+            return _nackEvents.Get(eventId).Item1;
+        }
+        catch (KeyNotFoundException)
+        {
+            throw new EventNotFoundException("The event was nout found in the nack storage");
+        }
+    }
+
+    /// <summary>
+    /// Check if an event exists.
+    /// </summary>
+    /// <param name="eventId">The event id.</param>
+    /// <returns>The event.</returns>
+    public bool ContainsEvent(Guid eventId)
+    {
+        return _nackEvents.ContainsKey(eventId);
     }
 }
