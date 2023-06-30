@@ -49,7 +49,6 @@ public class ExceptionMiddleware : IMiddleware
                     {
                         errorResult.Messages = e.ErrorMessages;
                     }
-
                     break;
 
                 case KeyNotFoundException:

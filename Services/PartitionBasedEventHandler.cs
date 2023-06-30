@@ -94,22 +94,22 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         return _partitions[partition].PeekAsync(cancellationToken);
     }
 
-    public Task<(T, Guid)> PollAsync(CancellationToken cancellationToken, bool logEvent = true)
+    public async Task<(T, Guid)> PollAsync(CancellationToken cancellationToken, bool logEvent = true)
     {
         for (int partitionId = 0; partitionId < _partitions.Count(); partitionId++)
         {
             int partition = GetReadPartition(cancellationToken);
             try
             {
-                return _partitions[partition].PollAsync(cancellationToken, logEvent);
+                return await _partitions[partition].PollAsync(cancellationToken, logEvent);
             }
             catch (NoEventFoundException)
             {
-                _logger.LogInformation($"no event was found in the partition ${_rebalancingCounterForReads}");
+                // Poll from other partitions
             }
         }
 
-        throw new NoEventFoundException($"No event found in the queue ${_queueName}, all partitions are empty");
+        throw new NoEventFoundException($"The queue {_queueName} is empty, all partitions are empty");
     }
 
     public Task PushAsync(T data, CancellationToken cancellationToken, bool logEvent = true)

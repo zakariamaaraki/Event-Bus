@@ -2,6 +2,8 @@ using Service_bus.Models;
 using Service_bus.Volumes;
 using Service_bus.Headers;
 using Service_bus.Storage;
+using Service_bus.Exceptions;
+using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 
@@ -56,9 +58,18 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
     /// <returns>A Task<(T, Guid)>.</returns>
     public async Task<(T, Guid)> PollAsync(CancellationToken cancellationToken, bool logEvent = true)
     {
-        T data = await _queue.PollAsync(cancellationToken);
-        var eventId = Guid.NewGuid();
+        T data;
+        try
+        {
+            data = await _queue.PollAsync(cancellationToken);
+        }
+        catch (NoEventFoundException e)
+        {
+            _logger.LogInformation($"The queue {QueueName} is empty");
+            throw e;
+        }
 
+        var eventId = Guid.NewGuid();
         _nackStorage.AddEvent(eventId, data);
 
         if (logEvent)

@@ -47,6 +47,7 @@ public class EventQueue<T> where T : AbstractEvent
 
         if (_queue.Count < 1)
         {
+            _semaphore.Release(1);
             throw new NoEventFoundException("The queue is empty");
         }
         data = _queue.Dequeue();

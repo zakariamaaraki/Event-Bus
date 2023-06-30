@@ -218,7 +218,7 @@ public class EventBus : IEventBus
         bool isDLQ = false,
         bool logEvent = true)
     {
-        if (newNumberOfPartitions > MaxPartitions)
+        if (newNumberOfPartitions < 1 || newNumberOfPartitions > MaxPartitions)
         {
             throw new InvalidArgumentException($"number of partitions should be between 1 and ${MaxPartitions}");
         }

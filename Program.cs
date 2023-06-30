@@ -25,12 +25,11 @@ builder.Services.AddHostedService<EventProcessor>();
 
 var app = builder.Build();
 
-app.UseMiddleware<IMiddleware>();
-
 // Configure the HTTP request pipeline.
+app.UseMiddleware<IMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.MapControllers();
+
 
 app.Run();
