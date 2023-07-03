@@ -14,7 +14,7 @@ public interface INackStorage<T>
     /// <param name="dateTimeOffset">The dateTimeOffset when the event was added to the storage.</param>
     /// <returns>A List<(Guid, (T, DateTimeOffset))>, represents the id, the events 
     /// and the dateTimeOffset when the events was added to the storage.</returns>
-    List<(Guid, (T, DateTimeOffset))> GetAndRemoveTimedOutEvents(DateTimeOffset dateTimeOffset);
+    List<(Guid, (T, DateTimeOffset))> GetTimedOutEvents(DateTimeOffset dateTimeOffset);
 
     /// <summary>
     /// Number of stored events.

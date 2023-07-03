@@ -23,6 +23,11 @@ public static class HeaderHelper
             header[WellKnownHeaders.MaxNumberOfAckTimeoutsHeader] = "-1"; // No limit
         }
 
+        if (!header.ContainsKey(WellKnownHeaders.SendToDeadLetterQueueAfterAckTimeout))
+        {
+            header[WellKnownHeaders.SendToDeadLetterQueueAfterAckTimeout] = "false";
+        }
+
         header[WellKnownHeaders.CurrentNumberOfAckTimeoutsHeader] = "0";
     }
 
@@ -44,7 +49,14 @@ public static class HeaderHelper
     {
         if (header.TryGetValue(WellKnownHeaders.MaxNumberOfAckTimeoutsHeader, out string? value))
         {
-            return Int32.Parse(value);
+            try
+            {
+                return Int32.Parse(value);
+            }
+            catch (Exception)
+            {
+                // TODO: add logging.
+            }
         }
         return -1;
     }
@@ -56,9 +68,17 @@ public static class HeaderHelper
     /// <returns>The number of acks timeout of the event</returns>
     public static int IncrementCurrentNumberOfAckTimeouts(Dictionary<string, string> header)
     {
-        if (header.TryGetValue(WellKnownHeaders.CurrentNumberOfAckTimeoutsHeader, out string? value))
+        if (header.TryGetValue(WellKnownHeaders.CurrentNumberOfAckTimeoutsHeader, out string? currentValue))
         {
-            var currentNumberOfAckTimeouts = Int32.Parse(value);
+            int currentNumberOfAckTimeouts = 0;
+            try
+            {
+                currentNumberOfAckTimeouts = Int32.Parse(currentValue);
+            }
+            catch (Exception)
+            {
+                // TODO: add logging.
+            }
             if (currentNumberOfAckTimeouts < Int32.MaxValue)
             {
                 currentNumberOfAckTimeouts++;
@@ -86,10 +106,50 @@ public static class HeaderHelper
 
         if (header.TryGetValue(WellKnownHeaders.CurrentNumberOfAckTimeoutsHeader, out string? currentValue))
         {
-            var currentNumberOfAckTimeouts = Int32.Parse(currentValue);
+            int currentNumberOfAckTimeouts = 0;
+            try
+            {
+                currentNumberOfAckTimeouts = Int32.Parse(currentValue);
+            }
+            catch (Exception)
+            {
+                // TODO: add logging.
+            }
             return currentNumberOfAckTimeouts < maxAckTimeouts;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Check if the event should be sent to DLQ after timeout.
+    /// </summary>
+    /// <param name="header">A dictionary representing the key, value pairs of the header</param>
+    /// <returns>A boolean representing whether the event should sent to DLQ</returns>
+    public static bool ShouldBeSentToDLQ(Dictionary<string, string> header)
+    {
+        bool shouldBeSentToDLQ = false;
+        if (header.TryGetValue(WellKnownHeaders.SendToDeadLetterQueueAfterAckTimeout, out string? sendToDLQ))
+        {
+            try
+            {
+                shouldBeSentToDLQ = bool.Parse(sendToDLQ);
+            }
+            catch (Exception)
+            {
+                // TODO: add logging.
+            }
+        }
+        return shouldBeSentToDLQ;
+    }
+
+    /// <summary>
+    /// Update SendToDeadLetterQueueAfterAckTimeout header value.
+    /// </summary>
+    /// <param name="header">A dictionary representing the key, value pairs of the header.</param>
+    /// <param name="sendToDLQ">A boolean representing wether the event should be send to dead letter queue after timeout or not.</param>
+    public static void UpdateSendToDeadLetterQueueAfterAckTimeoutHeaderValue(Dictionary<string, string> header, bool sendToDLQ)
+    {
+        header[WellKnownHeaders.SendToDeadLetterQueueAfterAckTimeout] = sendToDLQ.ToString();
     }
 }

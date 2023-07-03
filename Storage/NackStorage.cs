@@ -20,14 +20,14 @@ public class NackStorage<T> : INackStorage<T> where T : AbstractEvent
     private readonly LinkedDictionary<Guid, (T, DateTimeOffset)> _nackEvents = new();
 
     /// <summary>
-    /// Get and Remove timedout events.
+    /// Get timeout events.
     /// </summary>
     /// <param name="dateTimeOffset">The dateTimeOffset when the event was added to the storage.</param>
     /// <returns>A List<(Guid, (T, DateTimeOffset))>, represents the id, the events 
     /// and the dateTimeOffset when the events was added to the storage.</returns>
-    public List<(Guid, (T, DateTimeOffset))> GetAndRemoveTimedOutEvents(DateTimeOffset dateTimeOffset)
+    public List<(Guid, (T, DateTimeOffset))> GetTimedOutEvents(DateTimeOffset dateTimeOffset)
     {
-        return _nackEvents.RemoveBasedOnCondition(tuple => dateTimeOffset.CompareTo(tuple.Item2.AddMinutes(AckTimeout)) >= 0);
+        return _nackEvents.GetBasedOnCondition(tuple => dateTimeOffset.CompareTo(tuple.Item2.AddMinutes(AckTimeout)) >= 0);
     }
 
     /// <summary>

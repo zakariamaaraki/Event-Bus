@@ -111,4 +111,13 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
         await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
         _Semaphore.Release();
     }
+
+    public async Task LogQueueClearingEventAsync(string queueName, CancellationToken cancellationToken)
+    {
+        // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
+        await _Semaphore.WaitAsync();
+        await FileHelper.WriteDataAsync(EventOperation.ClearQueue + ":" + queueName, cancellationToken);
+        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        _Semaphore.Release();
+    }
 }

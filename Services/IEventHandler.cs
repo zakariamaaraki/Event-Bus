@@ -103,4 +103,12 @@ public interface IEventHandler<T>
     /// <param name="theEvent">The event stored in the nack storage if it exists.</param>
     /// <returns>True if the event exists, false otherwise.</returns>
     bool TryGetNackEvent(Guid eventId, out T? theEvent);
+
+    /// <summary>
+    /// Clear the queue from events.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task.</returns>
+    Task Clear(CancellationToken cancellationToken, bool logEvent = true);
 }

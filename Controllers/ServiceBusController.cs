@@ -91,4 +91,10 @@ public class ServiceBusController
     {
         return _eventBus.DeleteQueueAsync(queueName, cancellationToken);
     }
+
+    [HttpDelete("queue/events/{queueName}")]
+    public Task ClearQueueAsync(string queueName, CancellationToken cancellationToken)
+    {
+        return _eventBus.Clear(queueName, cancellationToken);
+    }
 }

@@ -103,7 +103,7 @@ public class EventBus : IEventBus
     {
         // Get the type of the queue for validation
         // We should only allow calls when queue type is equals to queue
-        QueueType queueType = _eventDispatcher.GetEventHandler(queueName).Item2;
+        (_, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
         if (queueType != QueueType.Queue)
         {
             throw new InvalidOperationException($"No dead letter queue is attached to this {queueType.ToString()}: {queueName}");
@@ -163,7 +163,7 @@ public class EventBus : IEventBus
 
         if (numberOfPartitions > 1)
         {
-            eventHandler = new PartitionBasedEventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, numberOfPartitions, queueType);
+            eventHandler = new PartitionBasedEventHandler<Event>(_logger, _eventLogger, this, ackTimeout, queueName, numberOfPartitions, queueType);
 
             // We should also register all partitions, for fast access to partitions, typically during startup.
             foreach (IEventHandler<Event> partition in eventHandler.GetPartitions())
@@ -173,7 +173,7 @@ public class EventBus : IEventBus
         }
         else
         {
-            eventHandler = new EventHandler<Event>(_logger, _eventLogger, ackTimeout, queueName, queueType);
+            eventHandler = new EventHandler<Event>(_logger, _eventLogger, this, ackTimeout, queueName, queueType);
         }
         _eventDispatcher.AddEventHandler(queueName, eventHandler, queueType);
 
@@ -340,6 +340,11 @@ public class EventBus : IEventBus
     public Task<int> TriggerTimeoutChecksAsync(CancellationToken cancellationToken)
     {
         return _eventDispatcher.TriggerTimeoutChecksAsync(cancellationToken);
+    }
+
+    public Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    {
+        return _eventDispatcher.Clear(queueName, cancellationToken, logEvent);
     }
 
     private string GetDeadLetterQueueName(string queueName)

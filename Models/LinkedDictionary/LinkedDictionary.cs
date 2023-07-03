@@ -52,7 +52,7 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
     /// <summary>
     /// Retrieves an element from the dictionary based on it's key.
     /// </summary>
-    /// <param name="key">The key</param>
+    /// <param name="key">The key.</param>
     /// <returns>Return the value or throw KeyNotFoundException incase the key was not found.</returns>
     public TValue? Get(TKey key)
     {
@@ -87,6 +87,11 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
                 _first = node.Next;
             }
 
+            if (_last == node)
+            {
+                _last = node.Prev;
+            }
+
             if (node.Next != null)
             {
                 node.Next.Prev = node.Prev;
@@ -105,11 +110,11 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
     }
 
     /// <summary>
-    /// Removes an element from the dictionary based on a condition/
+    /// Get elements from the dictionary based on a condition.
     /// </summary>
     /// <param name="function">A predicat function returning Whether the element should be deleted or not.</param>
     /// <returns>Returns a list of deleted elements.</returns>
-    public List<(TKey, TValue)> RemoveBasedOnCondition(Func<TValue, bool> function)
+    public List<(TKey, TValue)> GetBasedOnCondition(Func<TValue, bool> function)
     {
         Node<TKey, TValue>? iter = _first;
         List<(TKey, TValue)> list = new();
@@ -119,7 +124,6 @@ public class LinkedDictionary<TKey, TValue> where TKey : notnull
             if (iter.Value != null && function(iter.Value))
             {
                 list.Add((iter.Key, iter.Value));
-                Remove(iter.Key);
             }
             else
             {

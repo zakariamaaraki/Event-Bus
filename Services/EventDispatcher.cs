@@ -215,4 +215,10 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
                         }
                     });
     }
+
+    public Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    {
+        (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
+        return eventHandler.Clear(cancellationToken, logEvent);
+    }
 }

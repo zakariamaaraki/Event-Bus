@@ -24,14 +24,11 @@ public class EventQueue<T> where T : AbstractEvent
     /// <param name="data">The event.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task.</returns>
-    public Task PushAsync(T data, CancellationToken cancellationToken)
+    public async Task PushAsync(T data, CancellationToken cancellationToken)
     {
-        _semaphore.WaitAsync(cancellationToken);
-
+        await _semaphore.WaitAsync(cancellationToken);
         _queue.Enqueue(data);
-
         _semaphore.Release(1);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -39,11 +36,11 @@ public class EventQueue<T> where T : AbstractEvent
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<T>.</returns>
-    public Task<T> PollAsync(CancellationToken cancellationToken)
+    public async Task<T> PollAsync(CancellationToken cancellationToken)
     {
         T data;
 
-        _semaphore.WaitAsync(cancellationToken);
+        await _semaphore.WaitAsync(cancellationToken);
 
         if (_queue.Count < 1)
         {
@@ -53,7 +50,7 @@ public class EventQueue<T> where T : AbstractEvent
         data = _queue.Dequeue();
 
         _semaphore.Release(1);
-        return Task.FromResult(data);
+        return data;
     }
 
     /// <summary>
@@ -61,14 +58,12 @@ public class EventQueue<T> where T : AbstractEvent
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<T>.</returns>
-    public Task<T> PeekAsync(CancellationToken cancellationToken)
+    public async Task<T> PeekAsync(CancellationToken cancellationToken)
     {
-        _semaphore.WaitAsync(cancellationToken);
-
+        await _semaphore.WaitAsync(cancellationToken);
         T data = _queue.Peek();
-
         _semaphore.Release(1);
-        return Task.FromResult(data);
+        return data;
     }
 
     /// <summary>
@@ -76,13 +71,18 @@ public class EventQueue<T> where T : AbstractEvent
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<int></returns>
-    public Task<int> GetCountAsync(CancellationToken cancellationToken)
+    public async Task<int> GetCountAsync(CancellationToken cancellationToken)
     {
-        _semaphore.WaitAsync(cancellationToken);
-
+        await _semaphore.WaitAsync(cancellationToken);
         int count = _queue.Count;
-
         _semaphore.Release(1);
-        return Task.FromResult(count);
+        return count;
+    }
+
+    public async Task Clear(CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        _queue.Clear();
+        _semaphore.Release(1);
     }
 }

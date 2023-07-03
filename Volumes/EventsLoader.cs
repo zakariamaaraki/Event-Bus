@@ -62,6 +62,9 @@ public class EventsLoader : IEventsLoader
                     case EventOperation.DeleteQueue:
                         await DeleteQueueAsync(operation, cancellationToken);
                         break;
+                    case EventOperation.ClearQueue:
+                        await ClearQueueAsync(operation, cancellationToken);
+                        break;
                     default:
                         _logger.LogError($"Unknown operation found in the log file: {fileName}");
                         break;
@@ -120,5 +123,10 @@ public class EventsLoader : IEventsLoader
     private Task PushEventAsync(string[] operation, CancellationToken cancellationToken)
     {
         return _eventBus.PushEventAsync(operation[1], new Event().Deserialize(operation[2]), cancellationToken, logEvent: false);
+    }
+
+    private Task ClearQueueAsync(string[] operation, CancellationToken cancellationToken)
+    {
+        return _eventBus.Clear(operation[1], cancellationToken, logEvent: false);
     }
 }

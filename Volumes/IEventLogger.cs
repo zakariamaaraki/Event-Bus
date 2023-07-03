@@ -61,4 +61,12 @@ public interface IEventLogger<T> where T : AbstractEvent
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task.</returns>
     Task LogQueueDeletionEventAsync(string queueName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Log clear queue evnt.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A Task.</returns>
+    Task LogQueueClearingEventAsync(string queueName, CancellationToken cancellationToken);
 }

@@ -85,6 +85,15 @@ public interface IEventBus
     Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true);
 
     /// <summary>
+    /// Clear the queue from events.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should the event be logged to the log file?</param>
+    /// <returns>A Task.</returns>
+    Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true);
+
+    /// <summary>
     /// Trigger timeout checks.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

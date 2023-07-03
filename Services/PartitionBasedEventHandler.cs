@@ -8,6 +8,7 @@ namespace Service_bus.Services;
 public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : AbstractEvent
 {
     private readonly List<IEventHandler<T>> _partitions = new List<IEventHandler<T>>();
+    private readonly IEventBus _eventBus;
     private readonly ILogger _logger;
     private readonly string _queueName;
     private readonly QueueType _queueType;
@@ -20,11 +21,12 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     private int _rebalancingCounterForReads = -1;
     private int _rebalancingCounterForPeeks = -1;
 
-    public PartitionBasedEventHandler(ILogger logger, IEventLogger<T> eventLogger, int ackTimeout, string queueName, int partitions, QueueType queueType)
+    public PartitionBasedEventHandler(ILogger logger, IEventLogger<T> eventLogger, IEventBus eventBus, int ackTimeout, string queueName, int partitions, QueueType queueType)
     {
         _logger = logger;
         _queueName = queueName;
         _eventLogger = eventLogger;
+        _eventBus = eventBus;
         _ackTimeout = ackTimeout;
         _queueType = queueType;
 
@@ -88,10 +90,22 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         return _partitions.Select(partition => partition.GetUnAckedPollEvents()).Sum();
     }
 
-    public Task<T> PeekAsync(CancellationToken cancellationToken)
+    public async Task<T> PeekAsync(CancellationToken cancellationToken)
     {
-        int partition = GetPeekPartition(cancellationToken);
-        return _partitions[partition].PeekAsync(cancellationToken);
+        for (int partitionId = 0; partitionId < _partitions.Count(); partitionId++)
+        {
+            int partition = GetPeekPartition(cancellationToken);
+            try
+            {
+                return await _partitions[partition].PeekAsync(cancellationToken);
+            }
+            catch (NoEventFoundException)
+            {
+                // Poll from other partitions
+            }
+        }
+
+        throw new NoEventFoundException($"The queue {_queueName} is empty, all partitions are empty");
     }
 
     public async Task<(T, Guid)> PollAsync(CancellationToken cancellationToken, bool logEvent = true)
@@ -199,7 +213,17 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     {
         string partitionName = $"{_queueName}-partition${partitionId}";
         _logger.LogInformation($"Creating new virtual partition {partitionName} for the queue {_queueName}");
-        var eventHandler = new EventHandler<T>(_logger, _eventLogger, _ackTimeout, partitionName, QueueType.Partition);
+        var eventHandler = new EventHandler<T>(_logger, _eventLogger, _eventBus, _ackTimeout, partitionName, QueueType.Partition);
         _partitions.Add(eventHandler);
+    }
+
+    public async Task Clear(CancellationToken cancellationToken, bool logEvent = true)
+    {
+        _logger.LogDebug($"Start clearing the queue {QueueName}");
+        for (int partitionId = 0; partitionId < _partitions.Count(); partitionId++)
+        {
+            await _partitions[partitionId].Clear(cancellationToken, logEvent);
+        }
+        _logger.LogDebug($"End clearing the queue {QueueName}");
     }
 }

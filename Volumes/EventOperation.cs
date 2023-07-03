@@ -9,6 +9,7 @@ public enum EventOperation
     Poll,
     Ack,
     CreateQueue,
+    ClearQueue,
     ScalePartitions,
     DeleteQueue
 }

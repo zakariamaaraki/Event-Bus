@@ -77,6 +77,15 @@ public interface IEventDispatcher<T>
     Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true);
 
     /// <summary>
+    /// Clear the queue from events.
+    /// </summary>
+    /// <param name="queueName">The queue name.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="logEvent">Should an event be logged into the log file?</param>
+    /// <returns>A Task.</returns>
+    Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true);
+
+    /// <summary>
     /// Get nack event, based on the queue name and the event id.
     /// </summary>
     /// <param name="queueName">The queue name.</param>
