@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Service_bus.Models;
 using Service_bus.Services;
 using Service_bus.Headers;
+using Service_bus.Middlewares;
 
 namespace Service_bus.Controllers;
 
@@ -17,18 +18,21 @@ public class ServiceBusController
     }
 
     [HttpPost("queue")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task CreateQueue(string queueName, int numberOfPartitions, int maxAckTimeout, CancellationToken cancellationToken)
     {
         return _eventBus.CreateQueueAsync(queueName, maxAckTimeout, cancellationToken, numberOfPartitions: numberOfPartitions);
     }
 
     [HttpPost("queue/scale")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
     {
         return _eventBus.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken);
     }
 
     [HttpPost("queue/event")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task PushNewEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken)
     {
         HeaderHelper.AddDefaultValuesIfAbsentToTheHeader(newEvent.Header);
@@ -36,12 +40,14 @@ public class ServiceBusController
     }
 
     [HttpPost("queue/ack")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task AckEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
         return _eventBus.AckAsync(queueName, eventId, cancellationToken);
     }
 
     [HttpPost("queue/deadletter")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task AckAndMoveToDeadLetterQueueAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
         return _eventBus.AckAndMoveToDeadLetterQueue(queueName, eventId, cancellationToken);
@@ -63,6 +69,7 @@ public class ServiceBusController
     }
 
     [HttpGet("queue/event/{queueName}")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public async Task<PolledEvent> PollEventAsync(string queueName, CancellationToken cancellationToken)
     {
         (Event polledEvent, Guid id) = await _eventBus.PollAsync(queueName, cancellationToken);
@@ -87,12 +94,14 @@ public class ServiceBusController
     }
 
     [HttpDelete("queue/{queueName}")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken)
     {
         return _eventBus.DeleteQueueAsync(queueName, cancellationToken);
     }
 
     [HttpDelete("queue/events/{queueName}")]
+    [ServiceFilter(typeof(LeaderElectionChecker))]
     public Task ClearQueueAsync(string queueName, CancellationToken cancellationToken)
     {
         return _eventBus.Clear(queueName, cancellationToken);
