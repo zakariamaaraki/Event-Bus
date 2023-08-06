@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Service_bus.Configurations;
 using Service_bus.LeaderElection;
+using Service_bus.ServiceRegistry;
 
 namespace Service_bus.Controllers;
 
@@ -10,24 +11,35 @@ namespace Service_bus.Controllers;
 [Route("api/[controller]")]
 public class ClusterMetadataController
 {
-    private readonly IZookeeperClient _zookeeperClient;
-    private readonly string _nodeId;
+    private readonly ILeaderElectionClient _leaderElectionClient;
+    private readonly IServiceBusRegistry _serviceBusRegistry;
+    private readonly string _serviceId;
 
-    public ClusterMetadataController(IZookeeperClient zookeeperClient, IOptions<ZookeeperOptions> zookeeperOptions)
+    public ClusterMetadataController(
+        ILeaderElectionClient leaderElectionClient,
+        IServiceBusRegistry serviceBusRegistry,
+        IOptions<ConsulOptions> consulOptions)
     {
-        _zookeeperClient = zookeeperClient;
-        _nodeId = zookeeperOptions.Value.NodeId;
+        _leaderElectionClient = leaderElectionClient;
+        _serviceBusRegistry = serviceBusRegistry;
+        _serviceId = consulOptions.Value.ServiceId;
     }
 
     [HttpGet("leader")]
-    public Task<string> GetLeaderAsync()
+    public bool IsLeader()
     {
-        return _zookeeperClient.GetLeaderAsync();
+        return _leaderElectionClient.IsLeader();
     }
 
-    [HttpGet("nodeId")]
-    public string GetNodeId()
+    [HttpGet("instance/id")]
+    public string GetInstanceId()
     {
-        return _nodeId;
+        return _serviceId;
+    }
+
+    [HttpGet("instance")]
+    public async Task<List<ServiceBusInstance>> GetInstancesAsync()
+    {
+        return await _serviceBusRegistry.GetServicesAsync();
     }
 }
