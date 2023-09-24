@@ -43,7 +43,7 @@ public class ConsulHostedService : IHostedService
             Tags = new[] { _consulConfig.Value.ServiceName },
             Check = new AgentServiceCheck()
             {
-                HTTP = $"{uri.Scheme}://{uri.Host}:{uri.Port}/api/health/status",
+                HTTP = $"{uri.Scheme}://{uri.Host}:{uri.Port}/api/ClusterMetadata/health/status",
                 Timeout = TimeSpan.FromSeconds(3),
                 Interval = TimeSpan.FromSeconds(10)
             }

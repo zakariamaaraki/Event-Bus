@@ -37,4 +37,26 @@ public class ServiceBusRegistry : IServiceBusRegistry
                             })
                             .ToList();
     }
+
+    /// <summary>
+    /// Get a registered service by Id.
+    /// </summary>
+    /// <param name="serviceId">The service Id.</param>
+    /// <returns>The service.</returns>
+    public async Task<ServiceBusInstance> GetServiceByIdAsync(string serviceId)
+    {
+        QueryResult<Dictionary<string, AgentService>> services = await _consulClient.Agent.Services();
+
+        return services.Response
+                            .Where(service => service.Value.Tags.Any(t => t == _consulConfig.ServiceName))
+                            .Where(service => service.Value.ID.Equals(serviceId))
+                            .Select(service => new ServiceBusInstance()
+                            {
+                                Host = service.Value.Address,
+                                Id = service.Value.ID,
+                                Port = service.Value.Port,
+                                Tags = service.Value.Tags
+                            })
+                            .FirstOrDefault();
+    }
 }

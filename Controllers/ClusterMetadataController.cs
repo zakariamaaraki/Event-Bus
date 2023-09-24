@@ -37,9 +37,15 @@ public class ClusterMetadataController
         return _serviceId;
     }
 
-    [HttpGet("instance")]
+    [HttpGet("instances")]
     public async Task<List<ServiceBusInstance>> GetInstancesAsync()
     {
         return await _serviceBusRegistry.GetServicesAsync();
+    }
+
+    [HttpGet("health/status")]
+    public string GetHealthStatus()
+    {
+        return "UP";
     }
 }

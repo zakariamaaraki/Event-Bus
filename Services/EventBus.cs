@@ -5,6 +5,7 @@ using Service_bus.Volumes;
 
 using Microsoft.Extensions.Options;
 using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
+using Service_bus.DataReplication;
 
 namespace Service_bus.Services;
 
@@ -16,6 +17,7 @@ public class EventBus : IEventBus
     private readonly IEventDispatcher<Event> _eventDispatcher;
     private readonly ILogger<EventBus> _logger;
     private readonly IEventLogger<Event> _eventLogger;
+    private readonly ILeaderToFollowersDataReplication _leaderToFollowersDataReplication;
     private readonly int _maxKeySize;
     private readonly int _maxBodySize;
 
@@ -28,11 +30,13 @@ public class EventBus : IEventBus
         IEventDispatcher<Event> eventDispatcher,
         ILogger<EventBus> logger,
         IEventLogger<Event> eventLogger,
+        ILeaderToFollowersDataReplication leaderToFollowersDataReplication,
         IOptions<EventOptions> eventOptions)
     {
         _eventDispatcher = eventDispatcher;
         _logger = logger;
         _eventLogger = eventLogger;
+        _leaderToFollowersDataReplication = leaderToFollowersDataReplication;
         _maxKeySize = eventOptions.Value.MaxKeySize;
         _maxBodySize = eventOptions.Value.MaxBodySize;
     }
@@ -49,6 +53,13 @@ public class EventBus : IEventBus
     {
         ValidateEvent(newEvent);
         _logger.LogInformation("Pushing new event into the queue {queueName}", queueName);
+
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            _leaderToFollowersDataReplication.PushNewEventAsync(queueName, newEvent, cancellationToken);
+        }
+
         return _eventDispatcher.PushAsync(queueName, newEvent, cancellationToken, logEvent);
     }
 
@@ -145,6 +156,11 @@ public class EventBus : IEventBus
         bool logEvent = true,
         int numberOfPartitions = 1)
     {
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            _leaderToFollowersDataReplication.CreateQueueAsync(queueName, ackTimeout, ackTimeout, cancellationToken);
+        }
         return CreateQueueAsync(queueName, ackTimeout, cancellationToken, isDLQ: false, logEvent: logEvent, numberOfPartitions: numberOfPartitions);
     }
 

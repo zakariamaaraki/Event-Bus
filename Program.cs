@@ -7,6 +7,7 @@ using Service_bus.LeaderElection;
 using Service_bus.Consul;
 using Consul;
 using Service_bus.ServiceRegistry;
+using Service_bus.DataReplication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,10 @@ builder.Services.AddControllers(options =>
     //options.Filters.Add<LeaderElectionChecker>();
 });
 
+
+// Http Client
+builder.Services.AddHttpClient();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -50,6 +55,9 @@ builder.Services.AddSingleton<ILeaderElectionClient, ConsulLeaderElection>();
 
 // Service Registry
 builder.Services.AddSingleton<IServiceBusRegistry, ServiceBusRegistry>();
+
+// Data Replication
+builder.Services.AddSingleton<ILeaderToFollowersDataReplication, LeaderToFollowersDataReplication>();
 
 builder.Services.AddSingleton<IMiddleware, ExceptionMiddleware>();
 
