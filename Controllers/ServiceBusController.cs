@@ -19,44 +19,44 @@ public class ServiceBusController
 
     [HttpPost("queue")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task CreateQueue(string queueName, int numberOfPartitions, int maxAckTimeout, CancellationToken cancellationToken)
+    public async Task CreateQueue(string queueName, int numberOfPartitions, int maxAckTimeout, CancellationToken cancellationToken)
     {
-        return _eventBus.CreateQueueAsync(queueName, maxAckTimeout, cancellationToken, numberOfPartitions: numberOfPartitions);
+        await _eventBus.CreateQueueAsync(queueName, maxAckTimeout, cancellationToken, numberOfPartitions: numberOfPartitions);
     }
 
     [HttpPost("queue/scale")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
+    public async Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
     {
-        return _eventBus.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken);
+        await _eventBus.ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken);
     }
 
     [HttpPost("queue/event")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task PushNewEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken)
+    public async Task PushNewEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken)
     {
         HeaderHelper.AddDefaultValuesIfAbsentToTheHeader(newEvent.Header);
-        return _eventBus.PushEventAsync(queueName, newEvent, cancellationToken);
+        await _eventBus.PushEventAsync(queueName, newEvent, cancellationToken);
     }
 
     [HttpPost("queue/ack")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task AckEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
+    public async Task AckEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
-        return _eventBus.AckAsync(queueName, eventId, cancellationToken);
+        await _eventBus.AckAsync(queueName, eventId, cancellationToken);
     }
 
     [HttpPost("queue/deadletter")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task AckAndMoveToDeadLetterQueueAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
+    public async Task AckAndMoveToDeadLetterQueueAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
-        return _eventBus.AckAndMoveToDeadLetterQueue(queueName, eventId, cancellationToken);
+        await _eventBus.AckAndMoveToDeadLetterQueue(queueName, eventId, cancellationToken);
     }
 
     [HttpGet("queue/info/{queueName}")]
-    public Task<QueueInfo> GetQueueSizeInByteAsync(string queueName, CancellationToken cancellationToken)
+    public async Task<QueueInfo> GetQueueSizeInByteAsync(string queueName, CancellationToken cancellationToken)
     {
-        return _eventBus.GetQueueInfoAsync(queueName, cancellationToken);
+        return await _eventBus.GetQueueInfoAsync(queueName, cancellationToken);
     }
 
     [HttpGet("queues")]
@@ -95,15 +95,15 @@ public class ServiceBusController
 
     [HttpDelete("queue/{queueName}")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken)
+    public async Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken)
     {
-        return _eventBus.DeleteQueueAsync(queueName, cancellationToken);
+        await _eventBus.DeleteQueueAsync(queueName, cancellationToken);
     }
 
     [HttpDelete("queue/events/{queueName}")]
     [ServiceFilter(typeof(LeaderElectionChecker))]
-    public Task ClearQueueAsync(string queueName, CancellationToken cancellationToken)
+    public async Task ClearQueueAsync(string queueName, CancellationToken cancellationToken)
     {
-        return _eventBus.Clear(queueName, cancellationToken);
+        await _eventBus.Clear(queueName, cancellationToken);
     }
 }

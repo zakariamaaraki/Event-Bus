@@ -49,18 +49,18 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged to the log file?</param>
     /// <returns>A Task.</returns>
-    public Task PushEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task PushEventAsync(string queueName, Event newEvent, CancellationToken cancellationToken, bool logEvent = true)
     {
         ValidateEvent(newEvent);
         _logger.LogInformation("Pushing new event into the queue {queueName}", queueName);
 
+        await _eventDispatcher.PushAsync(queueName, newEvent, cancellationToken, logEvent);
+
         if (logEvent)
         {
             // TODO: add check if the replication went correctely.
-            _leaderToFollowersDataReplication.PushNewEventAsync(queueName, newEvent, cancellationToken);
+            await _leaderToFollowersDataReplication.PushNewEventAsync(queueName, newEvent, cancellationToken);
         }
-
-        return _eventDispatcher.PushAsync(queueName, newEvent, cancellationToken, logEvent);
     }
 
     private void ValidateEvent(Event incomingEvent)
@@ -86,6 +86,17 @@ public class EventBus : IEventBus
     {
         (Event polledEvent, Guid eventId) = await _eventDispatcher.PollAsync(queueName, cancellationToken, logEvent);
         _logger.LogInformation("Event consumed under the id = {eventId}", eventId);
+
+        // Fire and forget, to make read operation fast.
+        _ = Task.Run(async () =>
+        {
+            if (logEvent)
+            {
+                // TODO: add check if the replication went correctely.
+                await _leaderToFollowersDataReplication.PollEventAsync(queueName, cancellationToken);
+            }
+        });
+
         return (polledEvent, eventId);
     }
 
@@ -97,9 +108,15 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
-        return _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
+        await _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
+
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            await _leaderToFollowersDataReplication.AckEventAsync(queueName, eventId, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -110,7 +127,7 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task AckAndMoveToDeadLetterQueue(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
         // Get the type of the queue for validation
         // We should only allow calls when queue type is equals to queue
@@ -124,20 +141,25 @@ public class EventBus : IEventBus
         _logger.LogInformation($"Event: {eventId} from the queue: {queueName} will be moved to DLQ: {deadLetterQueueName}");
         Event? nackEvent = _eventDispatcher.GetNackEvent(queueName, eventId);
 
-        if (nackEvent is null)
+        if (nackEvent is not null)
+        {
+            // Send the event to the DLQ
+            await _eventDispatcher.PushAsync(deadLetterQueueName, nackEvent, cancellationToken, logEvent);
+        }
+        else
         {
             _logger.LogWarning("Nack event is not supposed to be null, the event will not be sent to the DLQ");
-            return Task.CompletedTask;
         }
 
-        // Send the event to the DLQ
-        _eventDispatcher.PushAsync(deadLetterQueueName, nackEvent, cancellationToken, logEvent);
-
         // Ack the event
-        // Not fot atomicity concerns the cancellation token should not be evaluated while acking the event.
-        AckAsync(queueName, eventId, CancellationToken.None, logEvent);
+        // For atomicity concerns the cancellation token should not be evaluated while acking the event.
+        await AckAsync(queueName, eventId, CancellationToken.None, logEvent);
 
-        return Task.CompletedTask;
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            await _leaderToFollowersDataReplication.AckEventAndMoveItToDLQAsync(queueName, eventId, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -149,22 +171,23 @@ public class EventBus : IEventBus
     /// <param name="logEvent">Should the event be logged into the queue?</param>
     /// <param name="numberOfPartitions">The number of partitions.</param>
     /// <returns>A Task.</returns>
-    public Task CreateQueueAsync(
+    public async Task CreateQueueAsync(
         string queueName,
         int ackTimeout,
         CancellationToken cancellationToken,
         bool logEvent = true,
         int numberOfPartitions = 1)
     {
+        await CreateQueueAsync(queueName, ackTimeout, cancellationToken, isDLQ: false, logEvent: logEvent, numberOfPartitions: numberOfPartitions);
+
         if (logEvent)
         {
             // TODO: add check if the replication went correctely.
-            _leaderToFollowersDataReplication.CreateQueueAsync(queueName, ackTimeout, ackTimeout, cancellationToken);
+            await _leaderToFollowersDataReplication.CreateQueueAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
         }
-        return CreateQueueAsync(queueName, ackTimeout, cancellationToken, isDLQ: false, logEvent: logEvent, numberOfPartitions: numberOfPartitions);
     }
 
-    private Task CreateQueueAsync(
+    private async Task CreateQueueAsync(
         string queueName,
         int ackTimeout,
         CancellationToken cancellationToken,
@@ -196,14 +219,13 @@ public class EventBus : IEventBus
         if (!isDLQ)
         {
             // Create the correspending DLQ queues.
-            CreateQueueAsync(GetDeadLetterQueueName(queueName), ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
+            await CreateQueueAsync(GetDeadLetterQueueName(queueName), ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
         }
 
         if (logEvent)
         {
-            return _eventLogger.LogQueueCreationEventAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
+            await _eventLogger.LogQueueCreationEventAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
         }
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -214,7 +236,7 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token</param>
     /// <param name="logEvent">Should the event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task ScaleNumberOfPartitions(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
     {
         (_, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
 
@@ -224,7 +246,13 @@ public class EventBus : IEventBus
             throw new InvalidOperationException("Scaling can be done only for queues");
         }
 
-        return ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, isDLQ: false, logEvent: logEvent);
+        await ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, isDLQ: false, logEvent: logEvent);
+
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            await _leaderToFollowersDataReplication.ScaleNumberOfPartitionsAsync(queueName, newNumberOfPartitions, cancellationToken);
+        }
     }
 
     private async Task ScaleNumberOfPartitions(
@@ -254,13 +282,13 @@ public class EventBus : IEventBus
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
         if (string.IsNullOrEmpty(queueName))
         {
             throw new InvalidArgumentException("Queue name cannot be null or empty");
         }
-        (IEventHandler<Event> eventHandler, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
+        (_, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
 
         switch (queueType)
         {
@@ -270,7 +298,13 @@ public class EventBus : IEventBus
                 throw new InvalidOperationException("You cannot delete a partition");
         }
 
-        return DeleteQueueAsync(queueName, cancellationToken, isDLQ: false, logEvent: logEvent);
+        await DeleteQueueAsync(queueName, cancellationToken, isDLQ: false, logEvent: logEvent);
+
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            await _leaderToFollowersDataReplication.DeleteQueueAsync(queueName, cancellationToken);
+        }
     }
 
     private async Task DeleteQueueAsync(string queueName, CancellationToken cancellationToken, bool isDLQ = false, bool logEvent = true)
@@ -321,9 +355,9 @@ public class EventBus : IEventBus
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>List of queue info.</returns>
-    public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
+    public async Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
-        return _eventDispatcher.GetListOfQueuesAsync(cancellationToken);
+        return await _eventDispatcher.GetListOfQueuesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -332,9 +366,9 @@ public class EventBus : IEventBus
     /// <param name="queueName">The queue name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<QueueInfo></returns>
-    public Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
+    public async Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
     {
-        return _eventDispatcher.GetQueueInfoAsync(queueName, cancellationToken);
+        return await _eventDispatcher.GetQueueInfoAsync(queueName, cancellationToken);
     }
 
     /// <summary>
@@ -343,9 +377,9 @@ public class EventBus : IEventBus
     /// <param name="queueName">The queue name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<Event></returns>
-    public Task<Event> PeekAsync(string queueName, CancellationToken cancellationToken)
+    public async Task<Event> PeekAsync(string queueName, CancellationToken cancellationToken)
     {
-        return _eventDispatcher.PeekAsync(queueName, cancellationToken);
+        return await _eventDispatcher.PeekAsync(queueName, cancellationToken);
     }
 
     /// <summary>
@@ -353,14 +387,20 @@ public class EventBus : IEventBus
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<int></returns>
-    public Task<int> TriggerTimeoutChecksAsync(CancellationToken cancellationToken)
+    public async Task<int> TriggerTimeoutChecksAsync(CancellationToken cancellationToken)
     {
-        return _eventDispatcher.TriggerTimeoutChecksAsync(cancellationToken);
+        return await _eventDispatcher.TriggerTimeoutChecksAsync(cancellationToken);
     }
 
-    public Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
-        return _eventDispatcher.Clear(queueName, cancellationToken, logEvent);
+        await _eventDispatcher.Clear(queueName, cancellationToken, logEvent);
+
+        if (logEvent)
+        {
+            // TODO: add check if the replication went correctely.
+            await _leaderToFollowersDataReplication.ClearQueueAsync(queueName, cancellationToken);
+        }
     }
 
     private string GetDeadLetterQueueName(string queueName)

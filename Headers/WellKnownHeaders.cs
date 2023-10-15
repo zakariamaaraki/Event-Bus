@@ -5,9 +5,10 @@ namespace Service_bus.Headers;
 /// </summary>
 public static class WellKnownHeaders
 {
-    public const string StartProcessingTimestampHeader = "start-processing-timestamp";
-    public const string LastProcessingTimestampHeader = "last-processing-timestamp";
-    public const string MaxNumberOfAckTimeoutsHeader = "max-number-of-ack-timeouts";
-    public const string CurrentNumberOfAckTimeoutsHeader = "current-number-of-ack-timeouts";
-    public const string SendToDeadLetterQueueAfterAckTimeout = "send-to-dlq-after-ack-timeout";
+    public const string StartProcessingTimestampHeader = "x-start-processing-timestamp";
+    public const string LastProcessingTimestampHeader = "x-last-processing-timestamp";
+    public const string MaxNumberOfAckTimeoutsHeader = "x-max-number-of-ack-timeouts";
+    public const string CurrentNumberOfAckTimeoutsHeader = "x-current-number-of-ack-timeouts";
+    public const string SendToDeadLetterQueueAfterAckTimeout = "x-send-to-dlq-after-ack-timeout";
+    public const string DataSyncHeader = "x-data-sync";
 }

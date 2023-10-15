@@ -88,7 +88,7 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged to the log file?</param>
     /// <returns>A Task.</returns>
-    public Task AckAsync(Guid id, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task AckAsync(Guid id, CancellationToken cancellationToken, bool logEvent = true)
     {
         if (_nackStorage.RemoveEvent(id))
         {
@@ -106,9 +106,8 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
 
         if (logEvent)
         {
-            return _eventLogger.LogAckEventAsync(_queueName, id, cancellationToken);
+            await _eventLogger.LogAckEventAsync(_queueName, id, cancellationToken);
         }
-        return Task.CompletedTask;
     }
 
     /// <summary>

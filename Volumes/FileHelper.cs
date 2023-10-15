@@ -69,13 +69,13 @@ public static class FileHelper
     /// </summary>
     /// <param name="fileName">The file name.</param>
     /// <returns>A Task<string></returns>
-    public static Task<string> ReadFileAsync(string fileName)
+    public static async Task<string> ReadFileAsync(string fileName)
     {
         if (File.Exists(fileName))
         {
             // Read entire text file content as one string
             string content = File.ReadAllText(fileName);
-            return Task.FromResult(content);
+            return content;
         }
 
         throw new FileNotFoundException($"File {fileName} not found");

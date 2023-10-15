@@ -73,22 +73,22 @@ public class EventsLoader : IEventsLoader
         }
     }
 
-    private Task ScaleNumberOfPartitions(string[] operation, CancellationToken cancellationToken)
+    private async Task ScaleNumberOfPartitions(string[] operation, CancellationToken cancellationToken)
     {
         if (!Int32.TryParse(operation[2], out int newNumberOfPartitions) || newNumberOfPartitions <= 0)
         {
             _logger.LogError($"Cannot Parse the integer number of partitions = {operation[2]}, the operation will be ignored");
-            return Task.CompletedTask;
+            return;
         }
-        return _eventBus.ScaleNumberOfPartitions(operation[1], newNumberOfPartitions, cancellationToken, logEvent: false);
+        await _eventBus.ScaleNumberOfPartitions(operation[1], newNumberOfPartitions, cancellationToken, logEvent: false);
     }
 
-    private Task DeleteQueueAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task DeleteQueueAsync(string[] operation, CancellationToken cancellationToken)
     {
-        return _eventBus.DeleteQueueAsync(operation[1], cancellationToken, logEvent: false);
+        await _eventBus.DeleteQueueAsync(operation[1], cancellationToken, logEvent: false);
     }
 
-    private Task CreateQueueAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task CreateQueueAsync(string[] operation, CancellationToken cancellationToken)
     {
         if (!Int32.TryParse(operation[3], out int ackTimeout) || ackTimeout <= 0)
         {
@@ -102,31 +102,30 @@ public class EventsLoader : IEventsLoader
                        + $"the queue, will be created with a default number of partitions = 1");
             numberOfPartitions = 1;
         }
-        return _eventBus.CreateQueueAsync(operation[1], ackTimeout, cancellationToken, logEvent: false, numberOfPartitions);
+        await _eventBus.CreateQueueAsync(operation[1], ackTimeout, cancellationToken, logEvent: false, numberOfPartitions);
     }
 
-    private Task AckEventAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task AckEventAsync(string[] operation, CancellationToken cancellationToken)
     {
         if (Guid.TryParse(operation[2], out Guid eventId))
         {
-            return _eventBus.AckAsync(operation[1], eventId, cancellationToken, logEvent: false);
+            await _eventBus.AckAsync(operation[1], eventId, cancellationToken, logEvent: false);
         }
         _logger.LogError($"Cannot Parse the Guid eventId {operation[2]}, the event will not be acked");
-        return Task.CompletedTask;
     }
 
-    private Task PollEventAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task PollEventAsync(string[] operation, CancellationToken cancellationToken)
     {
-        return _eventBus.PollAsync(operation[1], cancellationToken, logEvent: false);
+        await _eventBus.PollAsync(operation[1], cancellationToken, logEvent: false);
     }
 
-    private Task PushEventAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task PushEventAsync(string[] operation, CancellationToken cancellationToken)
     {
-        return _eventBus.PushEventAsync(operation[1], new Event().Deserialize(operation[2]), cancellationToken, logEvent: false);
+        await _eventBus.PushEventAsync(operation[1], new Event().Deserialize(operation[2]), cancellationToken, logEvent: false);
     }
 
-    private Task ClearQueueAsync(string[] operation, CancellationToken cancellationToken)
+    private async Task ClearQueueAsync(string[] operation, CancellationToken cancellationToken)
     {
-        return _eventBus.Clear(operation[1], cancellationToken, logEvent: false);
+        await _eventBus.Clear(operation[1], cancellationToken, logEvent: false);
     }
 }

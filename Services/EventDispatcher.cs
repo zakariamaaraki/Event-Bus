@@ -59,10 +59,10 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should the event be logged to the log file?</param>
     /// <returns>A Task.</returns>
-    public Task PushAsync(string queueName, T data, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task PushAsync(string queueName, T data, CancellationToken cancellationToken, bool logEvent = true)
     {
         (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
-        return eventHandler.PushAsync(data, cancellationToken, logEvent);
+        await eventHandler.PushAsync(data, cancellationToken, logEvent);
     }
 
     /// <summary>
@@ -72,10 +72,10 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should an event be logged to the log file?</param>
     /// <returns></returns>
-    public Task<(T, Guid)> PollAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task<(T, Guid)> PollAsync(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
         (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
-        return eventHandler.PollAsync(cancellationToken, logEvent);
+        return await eventHandler.PollAsync(cancellationToken, logEvent);
     }
 
     /// <summary>
@@ -86,11 +86,11 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <param name="logEvent">Should an event be logged into the log file?</param>
     /// <returns>A Task.</returns>
-    public Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task AckAsync(string queueName, Guid eventId, CancellationToken cancellationToken, bool logEvent = true)
     {
         _logger.LogInformation("Event id = {eventId} was successfully processed by the consumer", eventId);
         (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
-        return eventHandler.AckAsync(eventId, cancellationToken, logEvent);
+        await eventHandler.AckAsync(eventId, cancellationToken, logEvent);
     }
 
     /// <summary>
@@ -135,12 +135,13 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<QueueInfo[]></returns>
-    public Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
+    public async Task<QueueInfo[]> GetListOfQueuesAsync(CancellationToken cancellationToken)
     {
-        return Task.WhenAll(_eventHandlers
-                                .Where(eventHandler => eventHandler.Value.Item2 == QueueType.Queue || eventHandler.Value.Item2 == QueueType.DeadLetterQueue)
-                                .Select(async pair => await pair.Value.Item1.GetQueueInfoAsync(cancellationToken))
-                                .ToList());
+        return await Task.WhenAll(
+            _eventHandlers
+                .Where(eventHandler => eventHandler.Value.Item2 == QueueType.Queue || eventHandler.Value.Item2 == QueueType.DeadLetterQueue)
+                .Select(async pair => await pair.Value.Item1.GetQueueInfoAsync(cancellationToken))
+                .ToList());
     }
 
     /// <summary>
@@ -149,12 +150,12 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <param name="queueName">The queue name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<QueueInfo></returns>
-    public Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
+    public async Task<QueueInfo> GetQueueInfoAsync(string queueName, CancellationToken cancellationToken)
     {
         if (_eventHandlers.TryGetValue(queueName, out var item))
         {
             (IEventHandler<T>? eventHandler, _) = item;
-            return eventHandler.GetQueueInfoAsync(cancellationToken);
+            return await eventHandler.GetQueueInfoAsync(cancellationToken);
         }
 
         throw new QueueNotFoundException($"Queue {queueName} does not exist");
@@ -184,10 +185,10 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
     /// <param name="queueName">The queue name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A Task<T></returns>
-    public Task<T> PeekAsync(string queueName, CancellationToken cancellationToken)
+    public async Task<T> PeekAsync(string queueName, CancellationToken cancellationToken)
     {
         (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
-        return eventHandler.PeekAsync(cancellationToken);
+        return await eventHandler.PeekAsync(cancellationToken);
     }
 
     /// <summary>
@@ -216,9 +217,9 @@ public class EventDispatcher<T> : IEventDispatcher<T> where T : AbstractEvent
                     });
     }
 
-    public Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task Clear(string queueName, CancellationToken cancellationToken, bool logEvent = true)
     {
         (IEventHandler<T> eventHandler, _) = GetEventHandler(queueName);
-        return eventHandler.Clear(cancellationToken, logEvent);
+        await eventHandler.Clear(cancellationToken, logEvent);
     }
 }

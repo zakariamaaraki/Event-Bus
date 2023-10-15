@@ -126,10 +126,10 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         throw new NoEventFoundException($"The queue {_queueName} is empty, all partitions are empty");
     }
 
-    public Task PushAsync(T data, CancellationToken cancellationToken, bool logEvent = true)
+    public async Task PushAsync(T data, CancellationToken cancellationToken, bool logEvent = true)
     {
         int partition = GetWritePartition(cancellationToken);
-        return _partitions[partition].PushAsync(data, cancellationToken, logEvent);
+        await _partitions[partition].PushAsync(data, cancellationToken, logEvent);
     }
 
     public async Task<int> RequeueTimedOutNackAsync(DateTimeOffset dateTimeOffset, CancellationToken cancellationToken)
