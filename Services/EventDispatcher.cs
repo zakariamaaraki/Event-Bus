@@ -1,6 +1,5 @@
 using Service_bus.Models;
 using Service_bus.Exceptions;
-using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 

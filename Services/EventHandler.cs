@@ -3,7 +3,6 @@ using Service_bus.Volumes;
 using Service_bus.Headers;
 using Service_bus.Storage;
 using Service_bus.Exceptions;
-using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 
@@ -236,7 +235,7 @@ public class EventHandler<T> : IEventHandler<T> where T : AbstractEvent
 
     public Task ScaleNumberOfPartitions(int newNumberOfPartitions, CancellationToken cancellationToken, bool logEvent = true)
     {
-        throw new InvalidOperationException("You can not scale a queue created without partitions");
+        throw new ServiceBusInvalidOperationException("You can not scale a queue created without partitions");
     }
 
     public async Task Clear(CancellationToken cancellationToken, bool logEvent = true)

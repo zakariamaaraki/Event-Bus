@@ -11,6 +11,8 @@ using Service_bus.DataReplication;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddEnvironmentVariables();
+
 builder.Services.Configure<EventOptions>(
     builder.Configuration.GetSection("EventOptions"));
 
@@ -30,12 +32,10 @@ builder.Services.AddSingleton<Func<IConsulClient>>(p => () => new ConsulClient(c
     consulConfig.Address = new Uri(address);
 }));
 
-
 builder.Services.AddControllers(options =>
 {
     //options.Filters.Add<LeaderElectionChecker>();
 });
-
 
 // Http Client
 builder.Services.AddHttpClient();

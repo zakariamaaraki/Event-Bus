@@ -4,8 +4,8 @@ using Service_bus.Configurations;
 using Service_bus.Volumes;
 
 using Microsoft.Extensions.Options;
-using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 using Service_bus.DataReplication;
+using Service_bus.LeaderElection;
 
 namespace Service_bus.Services;
 
@@ -18,6 +18,7 @@ public class EventBus : IEventBus
     private readonly ILogger<EventBus> _logger;
     private readonly IEventLogger<Event> _eventLogger;
     private readonly ILeaderToFollowersDataReplication _leaderToFollowersDataReplication;
+    private readonly ILeaderElectionClient _leaderElectionClient;
     private readonly int _maxKeySize;
     private readonly int _maxBodySize;
 
@@ -31,12 +32,14 @@ public class EventBus : IEventBus
         ILogger<EventBus> logger,
         IEventLogger<Event> eventLogger,
         ILeaderToFollowersDataReplication leaderToFollowersDataReplication,
+        ILeaderElectionClient leaderElectionClient,
         IOptions<EventOptions> eventOptions)
     {
         _eventDispatcher = eventDispatcher;
         _logger = logger;
         _eventLogger = eventLogger;
         _leaderToFollowersDataReplication = leaderToFollowersDataReplication;
+        _leaderElectionClient = leaderElectionClient;
         _maxKeySize = eventOptions.Value.MaxKeySize;
         _maxBodySize = eventOptions.Value.MaxBodySize;
     }
@@ -56,7 +59,7 @@ public class EventBus : IEventBus
 
         await _eventDispatcher.PushAsync(queueName, newEvent, cancellationToken, logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.PushNewEventAsync(queueName, newEvent, cancellationToken);
@@ -90,7 +93,7 @@ public class EventBus : IEventBus
         // Fire and forget, to make read operation fast.
         _ = Task.Run(async () =>
         {
-            if (logEvent)
+            if (ShouldSyncEventWithFollowers(logEvent))
             {
                 // TODO: add check if the replication went correctely.
                 await _leaderToFollowersDataReplication.PollEventAsync(queueName, cancellationToken);
@@ -112,7 +115,7 @@ public class EventBus : IEventBus
     {
         await _eventDispatcher.AckAsync(queueName, eventId, cancellationToken, logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.AckEventAsync(queueName, eventId, cancellationToken);
@@ -134,7 +137,7 @@ public class EventBus : IEventBus
         (_, QueueType queueType) = _eventDispatcher.GetEventHandler(queueName);
         if (queueType != QueueType.Queue)
         {
-            throw new InvalidOperationException($"No dead letter queue is attached to this {queueType.ToString()}: {queueName}");
+            throw new ServiceBusInvalidOperationException($"No dead letter queue is attached to this {queueType.ToString()}: {queueName}");
         }
 
         string deadLetterQueueName = GetDeadLetterQueueName(queueName);
@@ -155,7 +158,7 @@ public class EventBus : IEventBus
         // For atomicity concerns the cancellation token should not be evaluated while acking the event.
         await AckAsync(queueName, eventId, CancellationToken.None, logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.AckEventAndMoveItToDLQAsync(queueName, eventId, cancellationToken);
@@ -180,7 +183,7 @@ public class EventBus : IEventBus
     {
         await CreateQueueAsync(queueName, ackTimeout, cancellationToken, isDLQ: false, logEvent: logEvent, numberOfPartitions: numberOfPartitions);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.CreateQueueAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
@@ -222,7 +225,7 @@ public class EventBus : IEventBus
             await CreateQueueAsync(GetDeadLetterQueueName(queueName), ackTimeout, cancellationToken, isDLQ: true, logEvent: false, numberOfPartitions: numberOfPartitions);
         }
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             await _eventLogger.LogQueueCreationEventAsync(queueName, numberOfPartitions, ackTimeout, cancellationToken);
         }
@@ -243,12 +246,12 @@ public class EventBus : IEventBus
         // Scaling should be allowed only for QueueType = Queue
         if (queueType != QueueType.Queue)
         {
-            throw new InvalidOperationException("Scaling can be done only for queues");
+            throw new ServiceBusInvalidOperationException("Scaling can be done only for queues");
         }
 
         await ScaleNumberOfPartitions(queueName, newNumberOfPartitions, cancellationToken, isDLQ: false, logEvent: logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.ScaleNumberOfPartitionsAsync(queueName, newNumberOfPartitions, cancellationToken);
@@ -293,14 +296,14 @@ public class EventBus : IEventBus
         switch (queueType)
         {
             case QueueType.DeadLetterQueue:
-                throw new InvalidOperationException("You cannot directly delete a dead letter queue");
+                throw new ServiceBusInvalidOperationException("You cannot directly delete a dead letter queue");
             case QueueType.Partition:
-                throw new InvalidOperationException("You cannot delete a partition");
+                throw new ServiceBusInvalidOperationException("You cannot delete a partition");
         }
 
         await DeleteQueueAsync(queueName, cancellationToken, isDLQ: false, logEvent: logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.DeleteQueueAsync(queueName, cancellationToken);
@@ -324,7 +327,7 @@ public class EventBus : IEventBus
             await DeleteQueueAsync(GetDeadLetterQueueName(queueName), cancellationToken, isDLQ: true, logEvent: false);
         }
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             await _eventLogger.LogQueueDeletionEventAsync(queueName, cancellationToken);
         }
@@ -396,7 +399,7 @@ public class EventBus : IEventBus
     {
         await _eventDispatcher.Clear(queueName, cancellationToken, logEvent);
 
-        if (logEvent)
+        if (ShouldSyncEventWithFollowers(logEvent))
         {
             // TODO: add check if the replication went correctely.
             await _leaderToFollowersDataReplication.ClearQueueAsync(queueName, cancellationToken);
@@ -406,5 +409,10 @@ public class EventBus : IEventBus
     private string GetDeadLetterQueueName(string queueName)
     {
         return $"{queueName}{DeadLetterQueueSuffix}";
+    }
+
+    private bool ShouldSyncEventWithFollowers(bool logEvent)
+    {
+        return _leaderElectionClient.IsLeader() && logEvent;
     }
 }

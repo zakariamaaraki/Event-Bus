@@ -23,14 +23,13 @@ public class EventsLoader : IEventsLoader
     /// Load events from log files.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A Task.</returns>
+    /// <returns>A Task.</returns>sss
     public async Task Load(CancellationToken cancellationToken)
     {
-        IEnumerable<(string, Task<string>)> Readers = FileHelper.ReadDataAsync();
+        IAsyncEnumerable<(string, string)> Readers = FileHelper.ReadDataAsync(cancellationToken);
 
-        foreach ((string fileName, Task<string> reader) in Readers)
+        await foreach ((string fileName, string data) in Readers)
         {
-            string data = await reader;
             string[] events = data.Split(EventLogger<Event>.RecordSeparator);
             foreach (string newEvent in events)
             {

@@ -1,7 +1,6 @@
 using Service_bus.Exceptions;
 using Service_bus.Models;
 using Service_bus.Volumes;
-using InvalidOperationException = Service_bus.Exceptions.InvalidOperationException;
 
 namespace Service_bus.Services;
 
@@ -145,9 +144,9 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
         int currentNumberOfPartitions = _partitions.Count();
         if (newNumberOfPartitions <= currentNumberOfPartitions)
         {
-            throw new InvalidOperationException($"You can only increase the number of partitions,"
-                                                + $" current number of partitions = {currentNumberOfPartitions},"
-                                                + $" requested number of partitions = {newNumberOfPartitions}");
+            throw new ServiceBusInvalidOperationException($"You can only increase the number of partitions,"
+                                                            + $" current number of partitions = {currentNumberOfPartitions},"
+                                                            + $" requested number of partitions = {newNumberOfPartitions}");
         }
         for (int i = 0; i < newNumberOfPartitions - currentNumberOfPartitions; i++)
         {
@@ -188,25 +187,43 @@ public class PartitionBasedEventHandler<T> : IEventHandler<T> where T : Abstract
     private int GetPeekPartition(CancellationToken cancellationToken)
     {
         _peekSemaphore.WaitAsync(cancellationToken);
-        int partition = _rebalancingCounterForPeeks = (_rebalancingCounterForPeeks + 1) % _partitions.Count();
-        _peekSemaphore.Release(1);
-        return partition;
+        try
+        {
+            int partition = _rebalancingCounterForPeeks = (_rebalancingCounterForPeeks + 1) % _partitions.Count();
+            return partition;
+        }
+        finally
+        {
+            _peekSemaphore.Release(1);
+        }
     }
 
     private int GetReadPartition(CancellationToken cancellationToken)
     {
         _readSemaphore.WaitAsync(cancellationToken);
-        int partition = _rebalancingCounterForReads = (_rebalancingCounterForReads + 1) % _partitions.Count();
-        _readSemaphore.Release(1);
-        return partition;
+        try
+        {
+            int partition = _rebalancingCounterForReads = (_rebalancingCounterForReads + 1) % _partitions.Count();
+            return partition;
+        }
+        finally
+        {
+            _readSemaphore.Release(1);
+        }
     }
 
     private int GetWritePartition(CancellationToken cancellationToken)
     {
         _writeSemaphore.WaitAsync(cancellationToken);
-        int partition = _rebalancingCounterForWrites = (_rebalancingCounterForWrites + 1) % _partitions.Count();
-        _writeSemaphore.Release(1);
-        return partition;
+        try
+        {
+            int partition = _rebalancingCounterForReads = (_rebalancingCounterForReads + 1) % _partitions.Count();
+            return partition;
+        }
+        finally
+        {
+            _writeSemaphore.Release(1);
+        }
     }
 
     private void CreateVirtualQueue(int partitionId)

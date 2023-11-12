@@ -23,11 +23,13 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogPushEventAsync(string queueName, T pushedEvent, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.Push + ":" + queueName + ":", cancellationToken);
-        await FileHelper.WriteDataAsync(pushedEvent.Serialize(), cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.Push + ":" + queueName + ":", cancellationToken);
+            await FileHelper.WriteDataAsync(pushedEvent.Serialize(), cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     /// <summary>
@@ -40,11 +42,13 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogPollEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.Poll + ":" + queueName + ":", cancellationToken);
-        await FileHelper.WriteDataAsync(eventId.ToString(), cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.Poll + ":" + queueName + ":", cancellationToken);
+            await FileHelper.WriteDataAsync(eventId.ToString(), cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     /// <summary>
@@ -57,11 +61,13 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogAckEventAsync(string queueName, Guid eventId, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.Ack + ":" + queueName + ":", cancellationToken);
-        await FileHelper.WriteDataAsync(eventId.ToString(), cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.Ack + ":" + queueName + ":", cancellationToken);
+            await FileHelper.WriteDataAsync(eventId.ToString(), cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     /// <summary>
@@ -75,10 +81,12 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogQueueCreationEventAsync(string queueName, int numberOfPartitions, int ackTimeout, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.CreateQueue + ":" + queueName + ":" + numberOfPartitions + ":" + ackTimeout, cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.CreateQueue + ":" + queueName + ":" + numberOfPartitions + ":" + ackTimeout, cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     /// <summary>
@@ -90,10 +98,12 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogQueueDeletionEventAsync(string queueName, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.DeleteQueue + ":" + queueName, cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.DeleteQueue + ":" + queueName, cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     /// <summary>
@@ -106,18 +116,36 @@ public class EventLogger<T> : IEventLogger<T> where T : AbstractEvent
     public async Task LogScaleNumberOfPartitionsEventAsync(string queueName, int newNumberOfPartitions, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.ScalePartitions + ":" + queueName + ":" + newNumberOfPartitions, cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.ScalePartitions + ":" + queueName + ":" + newNumberOfPartitions, cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
     }
 
     public async Task LogQueueClearingEventAsync(string queueName, CancellationToken cancellationToken)
     {
         // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
-        await _Semaphore.WaitAsync();
-        await FileHelper.WriteDataAsync(EventOperation.ClearQueue + ":" + queueName, cancellationToken);
-        await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
-        _Semaphore.Release();
+        await GetLockAndExecute(async () =>
+        {
+            await FileHelper.WriteDataAsync(EventOperation.ClearQueue + ":" + queueName, cancellationToken);
+            await FileHelper.WriteDataAsync(RecordSeparator, cancellationToken);
+        },
+        cancellationToken);
+    }
+
+
+    private async Task GetLockAndExecute(Action action, CancellationToken cancellationToken)
+    {
+        await _Semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _Semaphore.Release();
+        }
     }
 }

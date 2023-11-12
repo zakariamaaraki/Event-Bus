@@ -1,7 +1,6 @@
 
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Options;
-using Service_bus.Configurations;
+using Service_bus.Exceptions;
 using Service_bus.Headers;
 using Service_bus.LeaderElection;
 
@@ -27,7 +26,7 @@ public class LeaderElectionChecker : ActionFilterAttribute
     {
         string dataSync = context.HttpContext.Request.Headers[WellKnownHeaders.DataSyncHeader];
 
-        if (dataSync.Equals(true.ToString()))
+        if (true.ToString().Equals(dataSync))
         {
             _logger.LogInformation("Start data synchronization received from the leader");
             return;
@@ -42,7 +41,7 @@ public class LeaderElectionChecker : ActionFilterAttribute
     {
         if (!_leaderElectionClient.IsLeader())
         {
-            throw new InvalidOperationException("Request rejected, i'm not the leader");
+            throw new ServiceBusInvalidOperationException("Request rejected, i'm not the leader");
         }
     }
 }

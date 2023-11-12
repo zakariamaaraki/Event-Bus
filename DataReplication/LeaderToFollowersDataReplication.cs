@@ -2,6 +2,7 @@
 using System.Net;
 using Microsoft.Extensions.Options;
 using Service_bus.Configurations;
+using Service_bus.Headers;
 using Service_bus.Models;
 using Service_bus.ServiceRegistry;
 
@@ -75,7 +76,7 @@ public class LeaderToFollowersDataReplication : ILeaderToFollowersDataReplicatio
 
         string baseUri = $"{serviceInstance.Host}:{serviceInstance.Port}/api/ServiceBus";
 
-        using HttpRequestMessage request = new(HttpMethod.Delete, $"{baseUri}/queue?queueName={queueName}");
+        using HttpRequestMessage request = new(HttpMethod.Delete, $"{baseUri}/queue/{queueName}");
 
         // TODO: check the result returned by poll operation, and validate data consistency.
 
@@ -95,7 +96,7 @@ public class LeaderToFollowersDataReplication : ILeaderToFollowersDataReplicatio
 
         string baseUri = $"{serviceInstance.Host}:{serviceInstance.Port}/api/ServiceBus";
 
-        using HttpRequestMessage request = new(HttpMethod.Delete, $"{baseUri}/queue/events?queueName={queueName}");
+        using HttpRequestMessage request = new(HttpMethod.Delete, $"{baseUri}/queue/events/{queueName}");
 
         // TODO: check the result returned by poll operation, and validate data consistency.
 
@@ -222,8 +223,12 @@ public class LeaderToFollowersDataReplication : ILeaderToFollowersDataReplicatio
 
     private async Task<bool> Replicate(HttpRequestMessage request, string followerId)
     {
+        BuildRequestHeader(request);
+
         // Create the client
         using HttpClient client = _httpClientFactory.CreateClient();
+
+        _logger.LogInformation("Sending data sync event to: {TargetUri}", request.RequestUri);
 
         try
         {
@@ -246,6 +251,11 @@ public class LeaderToFollowersDataReplication : ILeaderToFollowersDataReplicatio
         }
 
         return true;
+    }
+
+    private void BuildRequestHeader(HttpRequestMessage request)
+    {
+        request.Headers.Add(WellKnownHeaders.DataSyncHeader, true.ToString());
     }
 
     private static bool ValidateResponse(HttpResponseMessage httpResponseMessage)

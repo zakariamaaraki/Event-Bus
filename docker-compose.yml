@@ -1,0 +1,43 @@
+version: "3.3"
+services:
+
+  eventbus1:
+    container_name: eventbus1  
+    build: .
+    depends_on:
+      - consul
+    volumes:
+      - data_1:/data
+    ports:
+      - 80:80 
+    environment:
+      ConsulOptions__ConnectionString: 'http://consul:8500'
+      ConsulOptions__Host: 'http://eventbus1'
+      ConsulOptions__Port: 80
+
+  eventbus2:
+    container_name: eventbus2
+    build: .
+    depends_on:
+      - consul
+    volumes:
+      - data_2:/data
+    ports:
+      - 81:80 
+    environment:
+      ConsulOptions__ConnectionString: 'http://consul:8500'
+      ConsulOptions__Host: 'http://eventbus2'
+      ConsulOptions__Port: 80  
+
+  consul:    
+    container_name: consul
+    image: hashicorp/consul
+    ports:
+      - 8500:8500
+      - 8600:8600
+
+volumes:
+  data_1:
+    driver: local
+  data_2:
+    driver: local  

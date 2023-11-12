@@ -27,8 +27,14 @@ public class EventQueue<T> where T : AbstractEvent
     public async Task PushAsync(T data, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-        _queue.Enqueue(data);
-        _semaphore.Release(1);
+        try
+        {
+            _queue.Enqueue(data);
+        }
+        finally
+        {
+            _semaphore.Release(1);
+        }
     }
 
     /// <summary>
@@ -41,16 +47,19 @@ public class EventQueue<T> where T : AbstractEvent
         T data;
 
         await _semaphore.WaitAsync(cancellationToken);
-
-        if (_queue.Count < 1)
+        try
+        {
+            if (_queue.Count < 1)
+            {
+                throw new NoEventFoundException("The queue is empty");
+            }
+            data = _queue.Dequeue();
+            return data;
+        }
+        finally
         {
             _semaphore.Release(1);
-            throw new NoEventFoundException("The queue is empty");
         }
-        data = _queue.Dequeue();
-
-        _semaphore.Release(1);
-        return data;
     }
 
     /// <summary>
@@ -61,9 +70,15 @@ public class EventQueue<T> where T : AbstractEvent
     public async Task<T> PeekAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-        T data = _queue.Peek();
-        _semaphore.Release(1);
-        return data;
+        try
+        {
+            T data = _queue.Peek();
+            return data;
+        }
+        finally
+        {
+            _semaphore.Release(1);
+        }
     }
 
     /// <summary>
@@ -74,15 +89,27 @@ public class EventQueue<T> where T : AbstractEvent
     public async Task<int> GetCountAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-        int count = _queue.Count;
-        _semaphore.Release(1);
-        return count;
+        try
+        {
+            int count = _queue.Count;
+            return count;
+        }
+        finally
+        {
+            _semaphore.Release(1);
+        }
     }
 
     public async Task Clear(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
-        _queue.Clear();
-        _semaphore.Release(1);
+        try
+        {
+            _queue.Clear();
+        }
+        finally
+        {
+            _semaphore.Release(1);
+        }
     }
 }

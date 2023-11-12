@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Service_bus.Volumes;
 
 /// <summary>
@@ -16,12 +18,12 @@ public static class FileHelper
     /// <summary>
     /// Read data from log files.
     /// </summary>
-    public static IEnumerable<(string, Task<string>)> ReadDataAsync()
+    public static async IAsyncEnumerable<(string, string)> ReadDataAsync([EnumeratorCancellation] CancellationToken ct)
     {
         string[] dataFiles = GetDataFiles();
         foreach (string fileName in dataFiles)
         {
-            yield return (fileName, ReadFileAsync(fileName));
+            yield return (fileName, await ReadFileAsync(fileName, ct));
         }
     }
 
@@ -38,44 +40,49 @@ public static class FileHelper
             return;
         }
 
-        // Note: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
+        // Attention /!\: cancellationToken should not be used inside this method to cancel writing data to log file as it will lead to inconsistency
         await _Semaphore.WaitAsync();
-
-        int dataSize = System.Text.ASCIIEncoding.Unicode.GetByteCount(data);
-
-        int lastIndexFile = GetLastIndexFile();
-        if (lastIndexFile == -1)
+        try
         {
-            // no file exist
-            lastIndexFile = 0;
+            int dataSize = System.Text.ASCIIEncoding.Unicode.GetByteCount(data);
+
+            int lastIndexFile = GetLastIndexFile();
+            if (lastIndexFile == -1)
+            {
+                // no file exist
+                lastIndexFile = 0;
+            }
+
+            string fileName = DirectoryName + "/" + LogFilePrefixName + lastIndexFile;
+
+            // Check if there is enough space for the new event
+            FileInfo fi = new FileInfo(fileName);
+            if (fi.Exists && fi.Length + dataSize > MaxFileSize)
+            {
+                // New file should be created to handle new events
+                lastIndexFile++;
+                fileName = DirectoryName + "/" + LogFilePrefixName + lastIndexFile;
+            }
+            await AppendToFileAsync(fileName, data);
         }
-
-        string fileName = DirectoryName + "/" + LogFilePrefixName + lastIndexFile;
-
-        // Check if there is enough space for the new event
-        FileInfo fi = new FileInfo(fileName);
-        if (fi.Exists && fi.Length + dataSize > MaxFileSize)
+        finally
         {
-            // New file should be created to handle new events
-            lastIndexFile++;
-            fileName = DirectoryName + "/" + LogFilePrefixName + lastIndexFile;
+            _Semaphore.Release(1);
         }
-        await AppendToFileAsync(fileName, data);
-        _Semaphore.Release(1);
     }
 
     /// <summary>
     /// Read data from a file.
     /// </summary>
     /// <param name="fileName">The file name.</param>
+    /// <param name="ct">The cancellation token</param>
     /// <returns>A Task<string></returns>
-    public static async Task<string> ReadFileAsync(string fileName)
+    public static async Task<string> ReadFileAsync(string fileName, CancellationToken ct)
     {
         if (File.Exists(fileName))
         {
             // Read entire text file content as one string
-            string content = File.ReadAllText(fileName);
-            return content;
+            return await File.ReadAllTextAsync(fileName, ct);
         }
 
         throw new FileNotFoundException($"File {fileName} not found");

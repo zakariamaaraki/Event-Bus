@@ -1,7 +1,7 @@
 
 namespace Service_bus.Exceptions;
 
-public class InvalidOperationException : CustomException
+public class ServiceBusInvalidOperationException : CustomException
 {
-    public InvalidOperationException(string message) : base(message, null, System.Net.HttpStatusCode.BadRequest) { }
+    public ServiceBusInvalidOperationException(string message) : base(message, null, System.Net.HttpStatusCode.BadRequest) { }
 }
