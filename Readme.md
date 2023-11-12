@@ -4,29 +4,24 @@ This project is an implementation of a queueing system using .NET 6. It provides
 
 ## Installation
 
-Use the provided docker to build a docker image.
+Use the provided docker image to build a docker image.
+Or you can use the docker-compose.yaml file to run multiple instances of service alongside with an instance of consul
 
 ```bash
-docker build . -t eventbus
-```
-
-Run an instance of the image
-
-```bash
-docker run -p 80:80 eventbus
-```
-
-If you want to persist data, run the following command:
-
-```bash
- docker run -p 80:80 -v eventbus:/app eventbus
+docker-compose up --build
 ```
 
 Now the eventbus is running and listening to the port 80. Visit the [swagger](http://localhost/swagger/index.html) page for the documentation and to test it: 
 
 ## Architecture
 
-![Architecture](queue-architecture.png)
+The system employs a leader-follower model with leader election facilitated by Consul, ensuring high availability and fault tolerance. Leveraging Consul for service discovery enables dynamic endpoint registration and discovery.
+
+![Architecture](architecture.png)
+
+In a single instance of the Event Bus system, the architecture revolves around a central Event Dispatcher component responsible for efficiently routing data to the respective Event Handlers. Each Event Handler manages a queue, which can be configured with one or multiple partitions to optimize parallel processing. Notably, every queue is equipped with a default Dead-Letter Queue (DLQ). The DLQ serves as a safety net for handling events that encounter processing errors or failures. Importantly, the number of partitions within the Dead-Letter Queue aligns with the number of partitions in its corresponding primary queue. This design ensures a robust and fault-tolerant system by isolating and addressing problematic events while maintaining scalability through partitioned queues.
+
+![Queue Architecture](queue-architecture.png)
 
 ## Contributing
 
