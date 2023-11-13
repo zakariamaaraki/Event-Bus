@@ -15,11 +15,19 @@ Now the eventbus is running and listening to the port 80. Visit the [swagger](ht
 
 ## Architecture
 
-The system employs a leader-follower model with leader election facilitated by Consul, ensuring high availability and fault tolerance. Leveraging Consul for service discovery enables dynamic endpoint registration and discovery.
+The system employs a leader-follower model with leader election facilitated by Consul, ensuring high availability and fault tolerance. 
+
+Leveraging Consul for service discovery enables dynamic endpoint registration and discovery.
 
 ![Architecture](service-architecture.png)
 
-In a single instance of the Event Bus system, the architecture revolves around a central Event Dispatcher component responsible for efficiently routing data to the respective Event Handlers. Each Event Handler manages a queue, which can be configured with one or multiple partitions to optimize parallel processing. Notably, every queue is equipped with a default Dead-Letter Queue (DLQ). The DLQ serves as a safety net for handling events that encounter processing errors or failures. Importantly, the number of partitions within the Dead-Letter Queue aligns with the number of partitions in its corresponding primary queue. This design ensures a robust and fault-tolerant system by isolating and addressing problematic events while maintaining scalability through partitioned queues.
+In a single instance of the Event Bus system, the architecture revolves around a central Event Dispatcher component responsible for efficiently routing data to the respective Event Handlers. 
+
+Each Event Handler manages a queue, which can be configured with one or multiple partitions to optimize parallel processing. Notably, every queue is equipped with a default Dead-Letter Queue (DLQ). 
+
+The DLQ serves as a safety net for handling events that encounter processing errors or failures. Importantly, the number of partitions within the Dead-Letter Queue aligns with the number of partitions in its corresponding primary queue. 
+
+This design ensures a robust and fault-tolerant system by isolating and addressing problematic events while maintaining scalability through partitioned queues.
 
 ![Queue Architecture](queue-architecture.png)
 
